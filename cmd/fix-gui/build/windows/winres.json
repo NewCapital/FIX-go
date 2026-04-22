@@ -1,0 +1,33 @@
+{
+  "RT_GROUP_ICON": {
+    "#1": {
+      "0000": "appicon.ico"
+    },
+    "#3": {
+      "0000": "appicon.ico"
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0409": {
+        "fixed": {
+          "file_version": "1.0.0.0",
+          "product_version": "1.0.0.0",
+          "type": "App"
+        },
+        "info": {
+          "0409": {
+            "CompanyName": "FIX Network",
+            "FileDescription": "FIX Wallet",
+            "FileVersion": "1.0.0.0",
+            "InternalName": "fix-gui",
+            "LegalCopyright": "Copyright © 2024 FIX Network",
+            "OriginalFilename": "fix-gui.exe",
+            "ProductName": "FIX Wallet",
+            "ProductVersion": "1.0.0.0"
+          }
+        }
+      }
+    }
+  }
+}

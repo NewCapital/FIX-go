@@ -1,0 +1,26 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "fix-gui",
+  "outputfilename": "fix-gui",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "http://localhost:5173",
+  "debounceMS": 100,
+  "appargs": "",
+  "runNonNativeBuildHooks": false,
+  "author": {
+    "name": "FIX Development Team",
+    "email": "noreply@fix.network"
+  },
+  "info": {
+    "companyName": "FIX Network",
+    "productName": "FIX Wallet",
+    "productVersion": "1.0.0",
+    "copyright": "Copyright © 2024 FIX Network",
+    "comments": "Modern desktop wallet for FIX cryptocurrency"
+  },
+  "nsisType": "multiple",
+  "obfuscated": false,
+  "garbleargs": "-literals -tiny -seed=random"
+}

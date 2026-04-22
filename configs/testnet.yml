@@ -1,0 +1,52 @@
+# FIX Testnet Configuration
+
+# Network settings
+network:
+  port: 5447
+  # Testnet seed nodes (mirrors GetDefaultSeeds(NetworkTestnet) in internal/config/defaults.go).
+  # Explicit list required because config_overlay treats `seeds: []` as "unset" and would
+  # leave the mainnet defaults from DefaultConfig in place.
+  seeds:
+    - 46.19.210.197:5447
+    - 46.19.214.68:5447
+    - 142.93.145.197:5447
+    - 159.65.84.118:5447
+    - 167.99.223.138:5447
+    - 68.183.161.44:5447
+    - 46.19.212.68:5447
+    - 46.19.213.68:5447
+    - 46.19.209.68:5447
+  maxPeers: 125
+  testNet: true
+  listenAddr: "0.0.0.0"
+  externalIP: ""
+  timeout: 30
+  keepAlive: 60
+  maxBandwidth: 0
+
+# RPC server settings
+rpc:
+  enabled: true
+  port: 19332
+  host: "127.0.0.1"
+  username: ""
+  password: ""
+  allowedIPs:
+    - "127.0.0.1"
+    - "::1"
+  maxClients: 50
+  timeout: 30
+
+# Masternode settings
+masternode:
+  enabled: false
+  privateKey: ""
+  serviceAddr: ""
+  mnConf: "masternode.conf"
+  mnConfLock: true
+
+# Logging settings
+logging:
+  level: "debug"
+  format: "text"
+  output: "./fix.log"
