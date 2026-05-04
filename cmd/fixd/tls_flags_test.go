@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	twinslib "github.com/NewCapital/FIX-go/internal/cli"
+	clilib "github.com/NewCapital/FIX-go/internal/cli"
 	"github.com/urfave/cli/v2"
 )
 
@@ -59,7 +59,7 @@ func TestRejectLegacyRPCSSLFlags(t *testing.T) {
 		},
 	}
 
-	daemonFlags := twinslib.CommonDaemonFlags()
+	daemonFlags := clilib.CommonDaemonFlags()
 
 	for _, tt := range tests {
 		t.Run(tt.flag, func(t *testing.T) {
@@ -80,7 +80,7 @@ func TestRejectLegacyRPCSSLFlags(t *testing.T) {
 
 // TestRejectLegacyRPCSSLFlags_NoLegacy verifies no error when legacy flags are not set.
 func TestRejectLegacyRPCSSLFlags_NoLegacy(t *testing.T) {
-	daemonFlags := twinslib.CommonDaemonFlags()
+	daemonFlags := clilib.CommonDaemonFlags()
 	ctx := newTestContext(daemonFlags) // no args
 	err := rejectLegacyRPCSSLFlags(ctx)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestRejectLegacyRPCSSLFlags_NoLegacy(t *testing.T) {
 // TestBuildConfigManagerTLSFlags verifies that TLS CLI flags are wired correctly
 // to the config via buildConfigManager.
 func TestBuildConfigManagerTLSFlags(t *testing.T) {
-	daemonFlags := twinslib.CommonDaemonFlags()
+	daemonFlags := clilib.CommonDaemonFlags()
 
 	// Create a temp dir for data and config
 	tmpDir := t.TempDir()
@@ -156,7 +156,7 @@ func TestBuildConfigManagerTLSFlags(t *testing.T) {
 // TestBuildConfigManagerTLSDefaults verifies that TLS config keeps defaults
 // when no TLS flags are passed.
 func TestBuildConfigManagerTLSDefaults(t *testing.T) {
-	daemonFlags := twinslib.CommonDaemonFlags()
+	daemonFlags := clilib.CommonDaemonFlags()
 	tmpDir := t.TempDir()
 
 	ctx := newTestContext(daemonFlags) // no TLS args
@@ -193,7 +193,7 @@ func TestBuildConfigManagerTLSDefaults(t *testing.T) {
 // TestBuildConfigManagerLegacyRejection verifies buildConfigManager rejects
 // legacy --rpcssl flags before applying any other settings.
 func TestBuildConfigManagerLegacyRejection(t *testing.T) {
-	daemonFlags := twinslib.CommonDaemonFlags()
+	daemonFlags := clilib.CommonDaemonFlags()
 	tmpDir := t.TempDir()
 
 	ctx := newTestContext(daemonFlags, "--rpcssl")

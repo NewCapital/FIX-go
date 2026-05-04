@@ -187,9 +187,14 @@ func CommonRPCClientFlags() []cli.Flag {
 			EnvVars: []string{"FIX_RPC_TLS"},
 		},
 		&cli.StringFlag{
-			Name:    "rpc-cert",
-			Usage:   "Path to RPC server TLS certificate",
-			EnvVars: []string{"FIX_RPC_CERT"},
+			Name:    "rpc-tls-ca",
+			Usage:   "Path to custom CA bundle for RPC server verification",
+			EnvVars: []string{"FIX_RPC_TLS_CA"},
+		},
+		&cli.StringFlag{
+			Name:    "rpc-tls-pin",
+			Usage:   "SPKI SHA-256 hash pin for certificate pinning (use rpc-cert-fingerprint to compute)",
+			EnvVars: []string{"FIX_RPC_TLS_PIN"},
 		},
 	}
 }
@@ -241,7 +246,7 @@ func CommonWalletFlags() []cli.Flag {
 		&cli.Int64Flag{
 			Name:    "maxtxfee",
 			Value:   100000000,
-			Usage:   "Maximum total transaction fee (in satoshis, default 1 FIX)",
+			Usage:   "Maximum total transaction fee (in satoshis, default 1 TWINS)",
 			EnvVars: []string{"FIX_MAXTXFEE"},
 		},
 		&cli.IntFlag{

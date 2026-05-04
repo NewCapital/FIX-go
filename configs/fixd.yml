@@ -24,8 +24,8 @@ rpc:
   # Enable JSON-RPC server (default: true)
   enabled: true
 
-  # RPC server port (default: 37818)
-  port: 37818
+  # RPC server port (default: 17465)
+  port: 17465
 
   # RPC server bind address (127.0.0.1 = localhost only)
   host: "127.0.0.1"

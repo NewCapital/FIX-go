@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"sort"
 	"strings"
 	"time"
@@ -17,6 +19,7 @@ func (s *Server) registerControlHandlers() {
 	s.RegisterHandler("stop", s.handleStop)
 	s.RegisterHandler("help", s.handleHelp)
 	s.RegisterHandler("setloglevel", s.handleSetLogLevel)
+	s.RegisterHandler("reloadrpccerts", s.handleReloadRPCCerts)
 }
 
 // SetShutdownFunc sets the shutdown callback function
@@ -93,688 +96,698 @@ func (s *Server) handleHelp(req *Request) *Response {
 // commandHelpTexts is the package-level map of RPC command help texts.
 // Exported via GetCommandHelp() and GetCommandBriefDescriptions().
 var commandHelpTexts = map[string]string{
-	"setloglevel": "setloglevel \"level\"\n\n" +
-		"Immediately change the log level of the running daemon.\n\n" +
-		"Arguments:\n" +
-		"1. \"level\"     (string, required) The new log level. One of: trace, debug, info, warn, error, fatal\n\n" +
-		"Result:\n" +
-		"\"text\"           (string) Confirmation of the new log level\n\n" +
-		"Examples:\n" +
-		"> fix-cli setloglevel debug\n" +
-		"> fix-cli setloglevel error\n" +
-		"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"setloglevel\", \"params\": [\"debug\"] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
+		"reloadrpccerts": "reloadrpccerts \"passphrase\"\n\n" +
+			"Reload TLS certificates for the RPC server (Windows/container fallback for SIGHUP).\n" +
+			"Requires rpc.tls.reload_passphrase_file to be configured with an argon2id hash file.\n\n" +
+			"WARNING: reload_passphrase MUST NOT be the same as your wallet passphrase.\n\n" +
+			"Arguments:\n" +
+			"1. \"passphrase\"  (string, required) The reload passphrase (verified against argon2id hash)\n\n" +
+			"Result:\n" +
+			"\"text\"           (string) Confirmation that certificates were reloaded\n\n" +
+			"Examples:\n" +
+			"> fix-cli reloadrpccerts \"my-reload-passphrase\"",
+		"setloglevel": "setloglevel \"level\"\n\n" +
+			"Immediately change the log level of the running daemon.\n\n" +
+			"Arguments:\n" +
+			"1. \"level\"     (string, required) The new log level. One of: trace, debug, info, warn, error, fatal\n\n" +
+			"Result:\n" +
+			"\"text\"           (string) Confirmation of the new log level\n\n" +
+			"Examples:\n" +
+			"> fix-cli setloglevel debug\n" +
+			"> fix-cli setloglevel error\n" +
+			"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"setloglevel\", \"params\": [\"debug\"] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
 
-	"stop": "stop\n\n" +
-		"Stop FIX server.\n\n" +
-		"Result:\n" +
-		"\"FIX server stopping\"    (string) Confirmation message\n\n" +
-		"Examples:\n" +
-		"> fix-cli stop\n" +
-		"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"stop\", \"params\": [] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
+		"stop": "stop\n\n" +
+			"Stop TWINS server.\n\n" +
+			"Result:\n" +
+			"\"TWINS server stopping\"    (string) Confirmation message\n\n" +
+			"Examples:\n" +
+			"> fix-cli stop\n" +
+			"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"stop\", \"params\": [] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
 
-	"help": "help ( \"command\" )\n\n" +
-		"List all commands, or get help for a specified command.\n\n" +
-		"Arguments:\n" +
-		"1. \"command\"     (string, optional) The command to get help on\n\n" +
-		"Result:\n" +
-		"\"text\"           (string) The help text\n\n" +
-		"Examples:\n" +
-		"> fix-cli help\n" +
-		"> fix-cli help getinfo",
+		"help": "help ( \"command\" )\n\n" +
+			"List all commands, or get help for a specified command.\n\n" +
+			"Arguments:\n" +
+			"1. \"command\"     (string, optional) The command to get help on\n\n" +
+			"Result:\n" +
+			"\"text\"           (string) The help text\n\n" +
+			"Examples:\n" +
+			"> fix-cli help\n" +
+			"> fix-cli help getinfo",
 
-	"getinfo": "getinfo\n\n" +
-		"Returns an object containing various state info.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"version\": xxxxx,           (numeric) the server version\n" +
-		"  \"protocolversion\": xxxxx,   (numeric) the protocol version\n" +
-		"  \"walletversion\": xxxxx,     (numeric) the wallet version\n" +
-		"  \"balance\": xxxxxxx,         (numeric) the total FIX balance of the wallet\n" +
-		"  \"blocks\": xxxxxx,           (numeric) the current number of blocks processed in the server\n" +
-		"  \"timeoffset\": xxxxx,        (numeric) the time offset\n" +
-		"  \"connections\": xxxxx,       (numeric) the number of connections\n" +
-		"  \"proxy\": \"host:port\",       (string, optional) the proxy used by the server\n" +
-		"  \"difficulty\": xxxxxx,       (numeric) the current difficulty\n" +
-		"  \"testnet\": true|false,      (boolean) if the server is using testnet or not\n" +
-		"  \"moneysupply\": xxxxx,       (numeric) the money supply\n" +
-		"  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n" +
-		"  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n" +
-		"  \"unlocked_until\": ttt,      (numeric) the timestamp in seconds since epoch (midnight Jan 1 1970 GMT) that the wallet is unlocked for transfers, or 0 if the wallet is locked\n" +
-		"  \"paytxfee\": x.xxxx,         (numeric) the transaction fee set in FIX/kB\n" +
-		"  \"relayfee\": x.xxxx,         (numeric) minimum relay fee for non-free transactions in FIX/kB\n" +
-		"  \"staking status\": true|false, (boolean) if the wallet is staking or not\n" +
-		"  \"errors\": \"...\"             (string) any error messages\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getinfo",
+		"getinfo": "getinfo\n\n" +
+			"Returns an object containing various state info.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"version\": xxxxx,           (numeric) the server version\n" +
+			"  \"protocolversion\": xxxxx,   (numeric) the protocol version\n" +
+			"  \"walletversion\": xxxxx,     (numeric) the wallet version\n" +
+			"  \"balance\": xxxxxxx,         (numeric) the total TWINS balance of the wallet\n" +
+			"  \"blocks\": xxxxxx,           (numeric) the current number of blocks processed in the server\n" +
+			"  \"timeoffset\": xxxxx,        (numeric) the time offset\n" +
+			"  \"connections\": xxxxx,       (numeric) the number of connections\n" +
+			"  \"proxy\": \"host:port\",       (string, optional) the proxy used by the server\n" +
+			"  \"difficulty\": xxxxxx,       (numeric) the current difficulty\n" +
+			"  \"testnet\": true|false,      (boolean) if the server is using testnet or not\n" +
+			"  \"moneysupply\": xxxxx,       (numeric) the money supply\n" +
+			"  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n" +
+			"  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n" +
+			"  \"unlocked_until\": ttt,      (numeric) the timestamp in seconds since epoch (midnight Jan 1 1970 GMT) that the wallet is unlocked for transfers, or 0 if the wallet is locked\n" +
+			"  \"paytxfee\": x.xxxx,         (numeric) the transaction fee set in FIX/kB\n" +
+			"  \"relayfee\": x.xxxx,         (numeric) minimum relay fee for non-free transactions in FIX/kB\n" +
+			"  \"staking status\": true|false, (boolean) if the wallet is staking or not\n" +
+			"  \"errors\": \"...\"             (string) any error messages\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getinfo",
 
-	"getblockcount": "getblockcount\n\n" +
-		"Returns the number of blocks in the longest blockchain.\n\n" +
-		"Result:\n" +
-		"n    (numeric) The current block count\n\n" +
-		"Examples:\n" +
-		"> fix-cli getblockcount",
+		"getblockcount": "getblockcount\n\n" +
+			"Returns the number of blocks in the longest blockchain.\n\n" +
+			"Result:\n" +
+			"n    (numeric) The current block count\n\n" +
+			"Examples:\n" +
+			"> fix-cli getblockcount",
 
-	"getbestblockhash": "getbestblockhash\n\n" +
-		"Returns the hash of the best (tip) block in the longest blockchain.\n\n" +
-		"Result:\n" +
-		"\"hash\"    (string) The block hash hex-encoded\n\n" +
-		"Examples:\n" +
-		"> fix-cli getbestblockhash",
+		"getbestblockhash": "getbestblockhash\n\n" +
+			"Returns the hash of the best (tip) block in the longest blockchain.\n\n" +
+			"Result:\n" +
+			"\"hash\"    (string) The block hash hex-encoded\n\n" +
+			"Examples:\n" +
+			"> fix-cli getbestblockhash",
 
-	"getblock": "getblock \"hash\" ( verbose )\n\n" +
-		"Returns information about the block with the given hash.\n\n" +
-		"Arguments:\n" +
-		"1. \"hash\"          (string, required) The block hash\n" +
-		"2. verbose         (boolean, optional, default=true) true for a json object, false for the hex encoded data\n\n" +
-		"Result (for verbose = true):\n" +
-		"{\n" +
-		"  \"hash\" : \"hash\",       (string) the block hash (same as provided)\n" +
-		"  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n" +
-		"  \"size\" : n,            (numeric) The block size\n" +
-		"  \"height\" : n,          (numeric) The block height or index\n" +
-		"  \"version\" : n,         (numeric) The block version\n" +
-		"  \"merkleroot\" : \"xxxx\", (string) The merkle root\n" +
-		"  \"tx\" : [               (array of string) The transaction ids\n" +
-		"     \"transactionid\"     (string) The transaction id\n" +
-		"     ,...\n" +
-		"  ],\n" +
-		"  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n" +
-		"  \"nonce\" : n,           (numeric) The nonce\n" +
-		"  \"bits\" : \"1d00ffff\",   (string) The bits\n" +
-		"  \"difficulty\" : x.xxx,  (numeric) The difficulty\n" +
-		"  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n" +
-		"  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n" +
-		"}\n\n" +
-		"Result (for verbose=false):\n" +
-		"\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n\n" +
-		"Examples:\n" +
-		"> fix-cli getblock \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"\n" +
-		"> fix-cli getblock \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" false",
+		"getblock": "getblock \"hash\" ( verbose )\n\n" +
+			"Returns information about the block with the given hash.\n\n" +
+			"Arguments:\n" +
+			"1. \"hash\"          (string, required) The block hash\n" +
+			"2. verbose         (boolean, optional, default=true) true for a json object, false for the hex encoded data\n\n" +
+			"Result (for verbose = true):\n" +
+			"{\n" +
+			"  \"hash\" : \"hash\",       (string) the block hash (same as provided)\n" +
+			"  \"confirmations\" : n,   (numeric) The number of confirmations, or -1 if the block is not on the main chain\n" +
+			"  \"size\" : n,            (numeric) The block size\n" +
+			"  \"height\" : n,          (numeric) The block height or index\n" +
+			"  \"version\" : n,         (numeric) The block version\n" +
+			"  \"merkleroot\" : \"xxxx\", (string) The merkle root\n" +
+			"  \"tx\" : [               (array of string) The transaction ids\n" +
+			"     \"transactionid\"     (string) The transaction id\n" +
+			"     ,...\n" +
+			"  ],\n" +
+			"  \"time\" : ttt,          (numeric) The block time in seconds since epoch (Jan 1 1970 GMT)\n" +
+			"  \"nonce\" : n,           (numeric) The nonce\n" +
+			"  \"bits\" : \"1d00ffff\",   (string) The bits\n" +
+			"  \"difficulty\" : x.xxx,  (numeric) The difficulty\n" +
+			"  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n" +
+			"  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n" +
+			"}\n\n" +
+			"Result (for verbose=false):\n" +
+			"\"data\"             (string) A string that is serialized, hex-encoded data for block 'hash'.\n\n" +
+			"Examples:\n" +
+			"> fix-cli getblock \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"\n" +
+			"> fix-cli getblock \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\" false",
 
-	"listmasternodes": "listmasternodes ( \"filter\" )\n\n" +
-		"Get a ranked list of masternodes.\n\n" +
-		"Arguments:\n" +
-		"1. \"filter\"    (string, optional) Filter by masternode address, status, or tier\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"rank\": n,           (numeric) Masternode rank\n" +
-		"    \"txhash\": \"hash\",    (string) Collateral transaction hash\n" +
-		"    \"outidx\": n,         (numeric) Collateral output index\n" +
-		"    \"status\": \"status\",  (string) Status (ENABLED, EXPIRED, etc.)\n" +
-		"    \"addr\": \"addr\",      (string) Masternode FIX address\n" +
-		"    \"version\": n,        (numeric) Masternode protocol version\n" +
-		"    \"lastseen\": ttt,     (numeric) Last seen timestamp\n" +
-		"    \"activetime\": ttt,   (numeric) Active time in seconds\n" +
-		"    \"lastpaid\": ttt,     (numeric) Last payment timestamp\n" +
-		"    \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli listmasternodes\n" +
-		"> fix-cli listmasternodes \"ENABLED\"",
+		"listmasternodes": "listmasternodes ( \"filter\" )\n\n" +
+			"Get a ranked list of masternodes.\n\n" +
+			"Arguments:\n" +
+			"1. \"filter\"    (string, optional) Filter by masternode address, status, or tier\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"rank\": n,           (numeric) Masternode rank\n" +
+			"    \"txhash\": \"hash\",    (string) Collateral transaction hash\n" +
+			"    \"outidx\": n,         (numeric) Collateral output index\n" +
+			"    \"status\": \"status\",  (string) Status (ENABLED, EXPIRED, etc.)\n" +
+			"    \"addr\": \"addr\",      (string) Masternode TWINS address\n" +
+			"    \"version\": n,        (numeric) Masternode protocol version\n" +
+			"    \"lastseen\": ttt,     (numeric) Last seen timestamp\n" +
+			"    \"activetime\": ttt,   (numeric) Active time in seconds\n" +
+			"    \"lastpaid\": ttt,     (numeric) Last payment timestamp\n" +
+			"    \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli listmasternodes\n" +
+			"> fix-cli listmasternodes \"ENABLED\"",
 
-	"getmasternodecount": "getmasternodecount\n\n" +
-		"Get masternode count values by tier.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"total\": n,        (numeric) Total number of masternodes\n" +
-		"  \"stable\": n,       (numeric) Stable masternodes (ENABLED)\n" +
-		"  \"enabled\": n,      (numeric) Enabled masternodes\n" +
-		"  \"inqueue\": n,      (numeric) Masternodes in payment queue\n" +
-		"  \"bronze\": n,       (numeric) Bronze tier (1M FIX)\n" +
-		"  \"silver\": n,       (numeric) Silver tier (5M FIX)\n" +
-		"  \"gold\": n,         (numeric) Gold tier (20M FIX)\n" +
-		"  \"platinum\": n      (numeric) Platinum tier (100M FIX)\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getmasternodecount",
+		"getmasternodecount": "getmasternodecount\n\n" +
+			"Get masternode count values by tier.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"total\": n,        (numeric) Total number of masternodes\n" +
+			"  \"stable\": n,       (numeric) Stable masternodes (ENABLED)\n" +
+			"  \"enabled\": n,      (numeric) Enabled masternodes\n" +
+			"  \"inqueue\": n,      (numeric) Masternodes in payment queue\n" +
+			"  \"bronze\": n,       (numeric) Bronze tier (1M TWINS)\n" +
+			"  \"silver\": n,       (numeric) Silver tier (5M TWINS)\n" +
+			"  \"gold\": n,         (numeric) Gold tier (20M TWINS)\n" +
+			"  \"platinum\": n      (numeric) Platinum tier (100M TWINS)\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getmasternodecount",
 
-	"masternodecurrent": "masternodecurrent\n\n" +
-		"Get current masternode winner for next block.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"protocol\": n,       (numeric) Protocol version\n" +
-		"  \"txhash\": \"hash\",    (string) Collateral transaction hash\n" +
-		"  \"pubkey\": \"key\",     (string) MN Public key\n" +
-		"  \"lastseen\": ttt,     (numeric) Last seen timestamp\n" +
-		"  \"activeseconds\": n,  (numeric) Seconds MN has been active\n" +
-		"  \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli masternodecurrent",
+		"masternodecurrent": "masternodecurrent\n\n" +
+			"Get current masternode winner for next block.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"protocol\": n,       (numeric) Protocol version\n" +
+			"  \"txhash\": \"hash\",    (string) Collateral transaction hash\n" +
+			"  \"pubkey\": \"key\",     (string) MN Public key\n" +
+			"  \"lastseen\": ttt,     (numeric) Last seen timestamp\n" +
+			"  \"activeseconds\": n,  (numeric) Seconds MN has been active\n" +
+			"  \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli masternodecurrent",
 
-	"getmasternodestatus": "getmasternodestatus\n\n" +
-		"Print masternode status for this node.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"txhash\": \"hash\",      (string) Collateral transaction hash\n" +
-		"  \"outputidx\": n,        (numeric) Collateral transaction output index\n" +
-		"  \"netaddr\": \"addr\",     (string) Masternode network address\n" +
-		"  \"addr\": \"addr\",        (string) FIX address for masternode payments\n" +
-		"  \"status\": \"status\",    (string) Masternode status\n" +
-		"  \"message\": \"msg\",      (string) Status message\n" +
-		"  \"tier\": \"tier\"         (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getmasternodestatus",
+		"getmasternodestatus": "getmasternodestatus\n\n" +
+			"Print masternode status for this node.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"txhash\": \"hash\",      (string) Collateral transaction hash\n" +
+			"  \"outputidx\": n,        (numeric) Collateral transaction output index\n" +
+			"  \"netaddr\": \"addr\",     (string) Masternode network address\n" +
+			"  \"addr\": \"addr\",        (string) TWINS address for masternode payments\n" +
+			"  \"status\": \"status\",    (string) Masternode status\n" +
+			"  \"message\": \"msg\",      (string) Status message\n" +
+			"  \"tier\": \"tier\"         (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getmasternodestatus",
 
-	"getmasternodewinners": "getmasternodewinners ( blocks \"filter\" )\n\n" +
-		"Print the masternode winners for the last n blocks.\n\n" +
-		"Arguments:\n" +
-		"1. blocks      (numeric, optional) Number of last blocks to check (default: 10)\n" +
-		"2. \"filter\"    (string, optional) Filter by address or tier\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"height\": n,        (numeric) Block height\n" +
-		"    \"winner\": {\n" +
-		"      \"address\": \"addr\", (string) Winning masternode address\n" +
-		"      \"nVotes\": n,       (numeric) Number of votes\n" +
-		"      \"tier\": \"tier\"     (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
-		"    }\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli getmasternodewinners\n" +
-		"> fix-cli getmasternodewinners 20",
+		"getmasternodewinners": "getmasternodewinners ( blocks \"filter\" )\n\n" +
+			"Print the masternode winners for the last n blocks.\n\n" +
+			"Arguments:\n" +
+			"1. blocks      (numeric, optional) Number of last blocks to check (default: 10)\n" +
+			"2. \"filter\"    (string, optional) Filter by address or tier\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"height\": n,        (numeric) Block height\n" +
+			"    \"winner\": {\n" +
+			"      \"address\": \"addr\", (string) Winning masternode address\n" +
+			"      \"nVotes\": n,       (numeric) Number of votes\n" +
+			"      \"tier\": \"tier\"     (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
+			"    }\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli getmasternodewinners\n" +
+			"> fix-cli getmasternodewinners 20",
 
-	"getmasternodescores": "getmasternodescores ( blocks )\n\n" +
-		"Print list of winning masternode by score.\n\n" +
-		"Arguments:\n" +
-		"1. blocks    (numeric, optional) Number of blocks to check (default: 10)\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"rank\": n,           (numeric) Masternode rank\n" +
-		"    \"score\": n,          (numeric) Masternode score\n" +
-		"    \"address\": \"addr\",   (string) Masternode address\n" +
-		"    \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli getmasternodescores\n" +
-		"> fix-cli getmasternodescores 20",
+		"getmasternodescores": "getmasternodescores ( blocks )\n\n" +
+			"Print list of winning masternode by score.\n\n" +
+			"Arguments:\n" +
+			"1. blocks    (numeric, optional) Number of blocks to check (default: 10)\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"rank\": n,           (numeric) Masternode rank\n" +
+			"    \"score\": n,          (numeric) Masternode score\n" +
+			"    \"address\": \"addr\",   (string) Masternode address\n" +
+			"    \"tier\": \"tier\"       (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli getmasternodescores\n" +
+			"> fix-cli getmasternodescores 20",
 
-	"createmasternodekey": "createmasternodekey\n\n" +
-		"Create a new masternode private key.\n\n" +
-		"Result:\n" +
-		"\"key\"    (string) Masternode private key\n\n" +
-		"Use this key in masternode.conf and set masternodeprivkey= in fix.conf\n\n" +
-		"Examples:\n" +
-		"> fix-cli createmasternodekey",
+		"createmasternodekey": "createmasternodekey\n\n" +
+			"Create a new masternode private key.\n\n" +
+			"Result:\n" +
+			"\"key\"    (string) Masternode private key\n\n" +
+			"Use this key in masternode.conf and set masternodeprivkey= in twins.conf\n\n" +
+			"Examples:\n" +
+			"> fix-cli createmasternodekey",
 
-	"getmasternodeoutputs": "getmasternodeoutputs\n\n" +
-		"Print all masternode transaction outputs from wallet.\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"txhash\": \"hash\",   (string) Transaction hash\n" +
-		"    \"outputidx\": n,     (numeric) Output index\n" +
-		"    \"amount\": n,        (numeric) Output amount in FIX\n" +
-		"    \"tier\": \"tier\"      (string) Tier this output qualifies for\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Valid masternode collateral amounts:\n" +
-		"  Bronze: 1,000,000 FIX\n" +
-		"  Silver: 5,000,000 FIX\n" +
-		"  Gold: 20,000,000 FIX\n" +
-		"  Platinum: 100,000,000 FIX\n\n" +
-		"Examples:\n" +
-		"> fix-cli getmasternodeoutputs",
+		"getmasternodeoutputs": "getmasternodeoutputs\n\n" +
+			"Print all masternode transaction outputs from wallet.\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"txhash\": \"hash\",   (string) Transaction hash\n" +
+			"    \"outputidx\": n,     (numeric) Output index\n" +
+			"    \"amount\": n,        (numeric) Output amount in TWINS\n" +
+			"    \"tier\": \"tier\"      (string) Tier this output qualifies for\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Valid masternode collateral amounts:\n" +
+			"  Bronze: 1,000,000 TWINS\n" +
+			"  Silver: 5,000,000 TWINS\n" +
+			"  Gold: 20,000,000 TWINS\n" +
+			"  Platinum: 100,000,000 TWINS\n\n" +
+			"Examples:\n" +
+			"> fix-cli getmasternodeoutputs",
 
-	"listmasternodeconf": "listmasternodeconf ( \"filter\" )\n\n" +
-		"Print masternode.conf in JSON format.\n\n" +
-		"Arguments:\n" +
-		"1. \"filter\"    (string, optional) Filter by alias\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"alias\": \"name\",      (string) Masternode alias\n" +
-		"    \"address\": \"addr\",    (string) Masternode IP:port\n" +
-		"    \"privateKey\": \"key\",  (string) Masternode private key\n" +
-		"    \"txHash\": \"hash\",     (string) Collateral transaction hash\n" +
-		"    \"outputIndex\": n,     (numeric) Collateral output index\n" +
-		"    \"status\": \"status\"    (string) Configuration status\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli listmasternodeconf\n" +
-		"> fix-cli listmasternodeconf \"mn1\"",
+		"listmasternodeconf": "listmasternodeconf ( \"filter\" )\n\n" +
+			"Print masternode.conf in JSON format.\n\n" +
+			"Arguments:\n" +
+			"1. \"filter\"    (string, optional) Filter by alias\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"alias\": \"name\",      (string) Masternode alias\n" +
+			"    \"address\": \"addr\",    (string) Masternode IP:port\n" +
+			"    \"privateKey\": \"key\",  (string) Masternode private key\n" +
+			"    \"txHash\": \"hash\",     (string) Collateral transaction hash\n" +
+			"    \"outputIndex\": n,     (numeric) Collateral output index\n" +
+			"    \"status\": \"status\"    (string) Configuration status\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli listmasternodeconf\n" +
+			"> fix-cli listmasternodeconf \"mn1\"",
 
-	// === Additional Blockchain Commands ===
-	"getblockhash": "getblockhash index\n\n" +
-		"Returns hash of block in best-block-chain at index provided.\n\n" +
-		"Arguments:\n" +
-		"1. index         (numeric, required) The block index\n\n" +
-		"Result:\n" +
-		"\"hash\"         (string) The block hash\n\n" +
-		"Examples:\n" +
-		"> fix-cli getblockhash 1000",
+		// === Additional Blockchain Commands ===
+		"getblockhash": "getblockhash index\n\n" +
+			"Returns hash of block in best-block-chain at index provided.\n\n" +
+			"Arguments:\n" +
+			"1. index         (numeric, required) The block index\n\n" +
+			"Result:\n" +
+			"\"hash\"         (string) The block hash\n\n" +
+			"Examples:\n" +
+			"> fix-cli getblockhash 1000",
 
-	"getblockchaininfo": "getblockchaininfo\n\n" +
-		"Returns an object containing various state info regarding block chain processing.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"chain\": \"xxxx\",        (string) current network name (main, test, regtest)\n" +
-		"  \"blocks\": xxxxxx,         (numeric) the current number of blocks processed\n" +
-		"  \"headers\": xxxxxx,        (numeric) the current number of headers we have validated\n" +
-		"  \"bestblockhash\": \"...\", (string) the hash of the currently best block\n" +
-		"  \"difficulty\": xxxxxx,     (numeric) the current difficulty\n" +
-		"  \"verificationprogress\": xxxx, (numeric) estimate of verification progress [0..1]\n" +
-		"  \"chainwork\": \"xxxx\"     (string) total amount of work in active chain, in hexadecimal\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getblockchaininfo",
+		"getblockchaininfo": "getblockchaininfo\n\n" +
+			"Returns an object containing various state info regarding block chain processing.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"chain\": \"xxxx\",        (string) current network name (main, test, regtest)\n" +
+			"  \"blocks\": xxxxxx,         (numeric) the current number of blocks processed\n" +
+			"  \"headers\": xxxxxx,        (numeric) the current number of headers we have validated\n" +
+			"  \"bestblockhash\": \"...\", (string) the hash of the currently best block\n" +
+			"  \"difficulty\": xxxxxx,     (numeric) the current difficulty\n" +
+			"  \"verificationprogress\": xxxx, (numeric) estimate of verification progress [0..1]\n" +
+			"  \"chainwork\": \"xxxx\"     (string) total amount of work in active chain, in hexadecimal\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getblockchaininfo",
 
-	"getdifficulty": "getdifficulty\n\n" +
-		"Returns the proof-of-work difficulty as a multiple of the minimum difficulty.\n\n" +
-		"Result:\n" +
-		"n.nnn       (numeric) the proof-of-work difficulty as a multiple of the minimum difficulty.\n\n" +
-		"Examples:\n" +
-		"> fix-cli getdifficulty",
+		"getdifficulty": "getdifficulty\n\n" +
+			"Returns the proof-of-work difficulty as a multiple of the minimum difficulty.\n\n" +
+			"Result:\n" +
+			"n.nnn       (numeric) the proof-of-work difficulty as a multiple of the minimum difficulty.\n\n" +
+			"Examples:\n" +
+			"> fix-cli getdifficulty",
 
-	"getblockheader": "getblockheader \"hash\" ( verbose )\n\n" +
-		"Returns information about blockheader <hash>.\n\n" +
-		"Arguments:\n" +
-		"1. \"hash\"          (string, required) The block hash\n" +
-		"2. verbose         (boolean, optional, default=true) true for a json object, false for the hex encoded data\n\n" +
-		"Result (for verbose = true):\n" +
-		"{\n" +
-		"  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n" +
-		"  \"confirmations\" : n,   (numeric) The number of confirmations\n" +
-		"  \"height\" : n,          (numeric) The block height or index\n" +
-		"  \"version\" : n,         (numeric) The block version\n" +
-		"  \"merkleroot\" : \"xxxx\", (string) The merkle root\n" +
-		"  \"time\" : ttt,          (numeric) The block time in seconds since epoch\n" +
-		"  \"nonce\" : n,           (numeric) The nonce\n" +
-		"  \"bits\" : \"1d00ffff\", (string) The bits\n" +
-		"  \"difficulty\" : x.xxx,  (numeric) The difficulty\n" +
-		"  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n" +
-		"  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getblockheader \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"",
+		"getblockheader": "getblockheader \"hash\" ( verbose )\n\n" +
+			"Returns information about blockheader <hash>.\n\n" +
+			"Arguments:\n" +
+			"1. \"hash\"          (string, required) The block hash\n" +
+			"2. verbose         (boolean, optional, default=true) true for a json object, false for the hex encoded data\n\n" +
+			"Result (for verbose = true):\n" +
+			"{\n" +
+			"  \"hash\" : \"hash\",     (string) the block hash (same as provided)\n" +
+			"  \"confirmations\" : n,   (numeric) The number of confirmations\n" +
+			"  \"height\" : n,          (numeric) The block height or index\n" +
+			"  \"version\" : n,         (numeric) The block version\n" +
+			"  \"merkleroot\" : \"xxxx\", (string) The merkle root\n" +
+			"  \"time\" : ttt,          (numeric) The block time in seconds since epoch\n" +
+			"  \"nonce\" : n,           (numeric) The nonce\n" +
+			"  \"bits\" : \"1d00ffff\", (string) The bits\n" +
+			"  \"difficulty\" : x.xxx,  (numeric) The difficulty\n" +
+			"  \"previousblockhash\" : \"hash\",  (string) The hash of the previous block\n" +
+			"  \"nextblockhash\" : \"hash\"       (string) The hash of the next block\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getblockheader \"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"",
 
-	// === Transaction Commands ===
-	"getrawtransaction": "getrawtransaction \"txid\" ( verbose )\n\n" +
-		"Return the raw transaction data.\n\n" +
-		"Arguments:\n" +
-		"1. \"txid\"      (string, required) The transaction id\n" +
-		"2. verbose       (numeric, optional, default=0) If 0, return a string, other return a json object\n\n" +
-		"Result (if verbose is not set or set to 0):\n" +
-		"\"data\"      (string) The serialized, hex-encoded data for 'txid'\n\n" +
-		"Result (if verbose > 0):\n" +
-		"{\n" +
-		"  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n" +
-		"  \"txid\" : \"id\",        (string) The transaction id\n" +
-		"  \"size\" : n,             (numeric) The transaction size\n" +
-		"  \"version\" : n,          (numeric) The version\n" +
-		"  \"locktime\" : ttt,       (numeric) The lock time\n" +
-		"  \"vin\" : [               (array of json objects)\n" +
-		"     {\n" +
-		"       \"txid\": \"id\",    (string) The transaction id\n" +
-		"       \"vout\": n,         (numeric) The output number\n" +
-		"       \"scriptSig\": {     (json object) The script\n" +
-		"         \"asm\": \"asm\",  (string) asm\n" +
-		"         \"hex\": \"hex\"   (string) hex\n" +
-		"       },\n" +
-		"       \"sequence\": n     (numeric) The script sequence number\n" +
-		"     }\n" +
-		"     ,...\n" +
-		"  ],\n" +
-		"  \"vout\" : [              (array of json objects)\n" +
-		"     {\n" +
-		"       \"value\" : x.xxx,            (numeric) The value in FIX\n" +
-		"       \"n\" : n,                    (numeric) index\n" +
-		"       \"scriptPubKey\" : {          (json object)\n" +
-		"         \"asm\" : \"asm\",          (string) the asm\n" +
-		"         \"hex\" : \"hex\",          (string) the hex\n" +
-		"         \"reqSigs\" : n,            (numeric) The required sigs\n" +
-		"         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n" +
-		"         \"addresses\" : [           (json array of string)\n" +
-		"           \"fixaddress\"   (string) FIX address\n" +
-		"           ,...\n" +
-		"         ]\n" +
-		"       }\n" +
-		"     }\n" +
-		"     ,...\n" +
-		"  ],\n" +
-		"  \"blockhash\" : \"hash\",   (string) the block hash\n" +
-		"  \"confirmations\" : n,      (numeric) The confirmations\n" +
-		"  \"time\" : ttt,             (numeric) The transaction time in seconds since epoch\n" +
-		"  \"blocktime\" : ttt         (numeric) The block time in seconds since epoch\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getrawtransaction \"mytxid\"\n" +
-		"> fix-cli getrawtransaction \"mytxid\" 1",
+		// === Transaction Commands ===
+		"getrawtransaction": "getrawtransaction \"txid\" ( verbose )\n\n" +
+			"Return the raw transaction data.\n\n" +
+			"Arguments:\n" +
+			"1. \"txid\"      (string, required) The transaction id\n" +
+			"2. verbose       (numeric, optional, default=0) If 0, return a string, other return a json object\n\n" +
+			"Result (if verbose is not set or set to 0):\n" +
+			"\"data\"      (string) The serialized, hex-encoded data for 'txid'\n\n" +
+			"Result (if verbose > 0):\n" +
+			"{\n" +
+			"  \"hex\" : \"data\",       (string) The serialized, hex-encoded data for 'txid'\n" +
+			"  \"txid\" : \"id\",        (string) The transaction id\n" +
+			"  \"size\" : n,             (numeric) The transaction size\n" +
+			"  \"version\" : n,          (numeric) The version\n" +
+			"  \"locktime\" : ttt,       (numeric) The lock time\n" +
+			"  \"vin\" : [               (array of json objects)\n" +
+			"     {\n" +
+			"       \"txid\": \"id\",    (string) The transaction id\n" +
+			"       \"vout\": n,         (numeric) The output number\n" +
+			"       \"scriptSig\": {     (json object) The script\n" +
+			"         \"asm\": \"asm\",  (string) asm\n" +
+			"         \"hex\": \"hex\"   (string) hex\n" +
+			"       },\n" +
+			"       \"sequence\": n     (numeric) The script sequence number\n" +
+			"     }\n" +
+			"     ,...\n" +
+			"  ],\n" +
+			"  \"vout\" : [              (array of json objects)\n" +
+			"     {\n" +
+			"       \"value\" : x.xxx,            (numeric) The value in TWINS\n" +
+			"       \"n\" : n,                    (numeric) index\n" +
+			"       \"scriptPubKey\" : {          (json object)\n" +
+			"         \"asm\" : \"asm\",          (string) the asm\n" +
+			"         \"hex\" : \"hex\",          (string) the hex\n" +
+			"         \"reqSigs\" : n,            (numeric) The required sigs\n" +
+			"         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n" +
+			"         \"addresses\" : [           (json array of string)\n" +
+			"           \"twinsaddress\"   (string) TWINS address\n" +
+			"           ,...\n" +
+			"         ]\n" +
+			"       }\n" +
+			"     }\n" +
+			"     ,...\n" +
+			"  ],\n" +
+			"  \"blockhash\" : \"hash\",   (string) the block hash\n" +
+			"  \"confirmations\" : n,      (numeric) The confirmations\n" +
+			"  \"time\" : ttt,             (numeric) The transaction time in seconds since epoch\n" +
+			"  \"blocktime\" : ttt         (numeric) The block time in seconds since epoch\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getrawtransaction \"mytxid\"\n" +
+			"> fix-cli getrawtransaction \"mytxid\" 1",
 
-	"sendrawtransaction": "sendrawtransaction \"hexstring\" ( allowhighfees )\n\n" +
-		"Submits raw transaction (serialized, hex-encoded) to local node and network.\n\n" +
-		"Arguments:\n" +
-		"1. \"hexstring\"    (string, required) The hex string of the raw transaction)\n" +
-		"2. allowhighfees    (boolean, optional, default=false) Allow high fees\n\n" +
-		"Result:\n" +
-		"\"hex\"             (string) The transaction hash in hex\n\n" +
-		"Examples:\n" +
-		"> fix-cli sendrawtransaction \"signedhex\"",
+		"sendrawtransaction": "sendrawtransaction \"hexstring\" ( allowhighfees )\n\n" +
+			"Submits raw transaction (serialized, hex-encoded) to local node and network.\n\n" +
+			"Arguments:\n" +
+			"1. \"hexstring\"    (string, required) The hex string of the raw transaction)\n" +
+			"2. allowhighfees    (boolean, optional, default=false) Allow high fees\n\n" +
+			"Result:\n" +
+			"\"hex\"             (string) The transaction hash in hex\n\n" +
+			"Examples:\n" +
+			"> fix-cli sendrawtransaction \"signedhex\"",
 
-	"decoderawtransaction": "decoderawtransaction \"hexstring\"\n\n" +
-		"Return a JSON object representing the serialized, hex-encoded transaction.\n\n" +
-		"Arguments:\n" +
-		"1. \"hexstring\"      (string, required) The transaction hex string\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"txid\" : \"id\",        (string) The transaction id\n" +
-		"  \"size\" : n,             (numeric) The transaction size\n" +
-		"  \"version\" : n,          (numeric) The version\n" +
-		"  \"locktime\" : ttt,       (numeric) The lock time\n" +
-		"  \"vin\" : [               (array of json objects)\n" +
-		"     ...\n" +
-		"  ],\n" +
-		"  \"vout\" : [              (array of json objects)\n" +
-		"     ...\n" +
-		"  ]\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli decoderawtransaction \"hexstring\"",
+		"decoderawtransaction": "decoderawtransaction \"hexstring\"\n\n" +
+			"Return a JSON object representing the serialized, hex-encoded transaction.\n\n" +
+			"Arguments:\n" +
+			"1. \"hexstring\"      (string, required) The transaction hex string\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"txid\" : \"id\",        (string) The transaction id\n" +
+			"  \"size\" : n,             (numeric) The transaction size\n" +
+			"  \"version\" : n,          (numeric) The version\n" +
+			"  \"locktime\" : ttt,       (numeric) The lock time\n" +
+			"  \"vin\" : [               (array of json objects)\n" +
+			"     ...\n" +
+			"  ],\n" +
+			"  \"vout\" : [              (array of json objects)\n" +
+			"     ...\n" +
+			"  ]\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli decoderawtransaction \"hexstring\"",
 
-	"createrawtransaction": "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n\n" +
-		"Create a transaction spending the given inputs and sending to the given addresses.\n\n" +
-		"Arguments:\n" +
-		"1. \"transactions\"        (string, required) A json array of json objects\n" +
-		"     [\n" +
-		"       {\n" +
-		"         \"txid\":\"id\",    (string, required) The transaction id\n" +
-		"         \"vout\":n        (numeric, required) The output number\n" +
-		"       }\n" +
-		"       ,...\n" +
-		"     ]\n" +
-		"2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n" +
-		"    {\n" +
-		"      \"address\": x.xxx   (numeric, required) The key is the FIX address, the value is the FIX amount\n" +
-		"      ,...\n" +
-		"    }\n\n" +
-		"Result:\n" +
-		"\"transaction\"            (string) hex string of the transaction\n\n" +
-		"Examples:\n" +
-		"> fix-cli createrawtransaction \"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"",
+		"createrawtransaction": "createrawtransaction [{\"txid\":\"id\",\"vout\":n},...] {\"address\":amount,...}\n\n" +
+			"Create a transaction spending the given inputs and sending to the given addresses.\n\n" +
+			"Arguments:\n" +
+			"1. \"transactions\"        (string, required) A json array of json objects\n" +
+			"     [\n" +
+			"       {\n" +
+			"         \"txid\":\"id\",    (string, required) The transaction id\n" +
+			"         \"vout\":n        (numeric, required) The output number\n" +
+			"       }\n" +
+			"       ,...\n" +
+			"     ]\n" +
+			"2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n" +
+			"    {\n" +
+			"      \"address\": x.xxx   (numeric, required) The key is the TWINS address, the value is the TWINS amount\n" +
+			"      ,...\n" +
+			"    }\n\n" +
+			"Result:\n" +
+			"\"transaction\"            (string) hex string of the transaction\n\n" +
+			"Examples:\n" +
+			"> fix-cli createrawtransaction \"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"{\\\"address\\\":0.01}\"",
 
-	"signrawtransaction": "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n\n" +
-		"Sign inputs for raw transaction (serialized, hex-encoded).\n\n" +
-		"Arguments:\n" +
-		"1. \"hexstring\"     (string, required) The transaction hex string\n" +
-		"2. \"prevtxs\"       (string, optional) An json array of previous dependent transaction outputs\n" +
-		"3. \"privkeys\"      (string, optional) A json array of base58-encoded private keys for signing\n" +
-		"4. \"sighashtype\"   (string, optional, default=ALL) The signature hash type\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"hex\": \"value\",   (string) The raw transaction with signature(s) (hex-encoded string)\n" +
-		"  \"complete\": n       (numeric) if transaction has a complete set of signature (0 if not)\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli signrawtransaction \"myhex\"",
+		"signrawtransaction": "signrawtransaction \"hexstring\" ( [{\"txid\":\"id\",\"vout\":n,\"scriptPubKey\":\"hex\",\"redeemScript\":\"hex\"},...] [\"privatekey1\",...] sighashtype )\n\n" +
+			"Sign inputs for raw transaction (serialized, hex-encoded).\n\n" +
+			"Arguments:\n" +
+			"1. \"hexstring\"     (string, required) The transaction hex string\n" +
+			"2. \"prevtxs\"       (string, optional) An json array of previous dependent transaction outputs\n" +
+			"3. \"privkeys\"      (string, optional) A json array of base58-encoded private keys for signing\n" +
+			"4. \"sighashtype\"   (string, optional, default=ALL) The signature hash type\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"hex\": \"value\",   (string) The raw transaction with signature(s) (hex-encoded string)\n" +
+			"  \"complete\": n       (numeric) if transaction has a complete set of signature (0 if not)\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli signrawtransaction \"myhex\"",
 
-	"decodescript": "decodescript \"hex\"\n\n" +
-		"Decode a hex-encoded script.\n\n" +
-		"Arguments:\n" +
-		"1. \"hex\"     (string) the hex encoded script\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"asm\":\"asm\",   (string) Script public key\n" +
-		"  \"hex\":\"hex\",   (string) hex encoded public key\n" +
-		"  \"type\":\"type\", (string) The output type\n" +
-		"  \"reqSigs\": n,    (numeric) The required signatures\n" +
-		"  \"addresses\": [   (json array of string)\n" +
-		"     \"address\"     (string) FIX address\n" +
-		"     ,...\n" +
-		"  ],\n" +
-		"  \"p2sh\",\"address\" (string) script address\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli decodescript \"hexstring\"",
+		"decodescript": "decodescript \"hex\"\n\n" +
+			"Decode a hex-encoded script.\n\n" +
+			"Arguments:\n" +
+			"1. \"hex\"     (string) the hex encoded script\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"asm\":\"asm\",   (string) Script public key\n" +
+			"  \"hex\":\"hex\",   (string) hex encoded public key\n" +
+			"  \"type\":\"type\", (string) The output type\n" +
+			"  \"reqSigs\": n,    (numeric) The required signatures\n" +
+			"  \"addresses\": [   (json array of string)\n" +
+			"     \"address\"     (string) TWINS address\n" +
+			"     ,...\n" +
+			"  ],\n" +
+			"  \"p2sh\",\"address\" (string) script address\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli decodescript \"hexstring\"",
 
-	// === Wallet Commands ===
-	"getnewaddress": "getnewaddress ( \"account\" )\n\n" +
-		"Returns a new FIX address for receiving payments.\n\n" +
-		"Arguments:\n" +
-		"1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used.\n\n" +
-		"Result:\n" +
-		"\"fixaddress\"    (string) The new FIX address\n\n" +
-		"Examples:\n" +
-		"> fix-cli getnewaddress\n" +
-		"> fix-cli getnewaddress \"myaccount\"",
+		// === Wallet Commands ===
+		"getnewaddress": "getnewaddress ( \"account\" )\n\n" +
+			"Returns a new TWINS address for receiving payments.\n\n" +
+			"Arguments:\n" +
+			"1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used.\n\n" +
+			"Result:\n" +
+			"\"twinsaddress\"    (string) The new TWINS address\n\n" +
+			"Examples:\n" +
+			"> fix-cli getnewaddress\n" +
+			"> fix-cli getnewaddress \"myaccount\"",
 
-	"getbalance": "getbalance ( \"account\" minconf includeWatchonly )\n\n" +
-		"Returns the server's total available balance.\n\n" +
-		"Arguments:\n" +
-		"1. \"account\"      (string, optional) The selected account, or \"*\" for entire wallet. Default is \"*\".\n" +
-		"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n" +
-		"3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses\n\n" +
-		"Result:\n" +
-		"amount              (numeric) The total amount in FIX received for this account.\n\n" +
-		"Examples:\n" +
-		"> fix-cli getbalance\n" +
-		"> fix-cli getbalance \"*\" 6",
+		"getbalance": "getbalance ( \"account\" minconf includeWatchonly )\n\n" +
+			"Returns the server's total available balance.\n\n" +
+			"Arguments:\n" +
+			"1. \"account\"      (string, optional) The selected account, or \"*\" for entire wallet. Default is \"*\".\n" +
+			"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n" +
+			"3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses\n\n" +
+			"Result:\n" +
+			"amount              (numeric) The total amount in TWINS received for this account.\n\n" +
+			"Examples:\n" +
+			"> fix-cli getbalance\n" +
+			"> fix-cli getbalance \"*\" 6",
 
-	"sendtoaddress": "sendtoaddress \"fixaddress\" amount ( \"comment\" \"comment-to\" )\n\n" +
-		"Send an amount to a given address.\n\n" +
-		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address to send to.\n" +
-		"2. \"amount\"      (numeric, required) The amount in FIX to send. eg 0.1\n" +
-		"3. \"comment\"     (string, optional) A comment used to store what the transaction is for.\n" +
-		"4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization to which you're sending the transaction.\n\n" +
-		"Result:\n" +
-		"\"transactionid\"  (string) The transaction id.\n\n" +
-		"Examples:\n" +
-		"> fix-cli sendtoaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 0.1\n" +
-		"> fix-cli sendtoaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 0.1 \"donation\" \"seans outpost\"",
+		"sendtoaddress": "sendtoaddress \"twinsaddress\" amount ( \"comment\" \"comment-to\" )\n\n" +
+			"Send an amount to a given address.\n\n" +
+			"Arguments:\n" +
+			"1. \"twinsaddress\"  (string, required) The TWINS address to send to.\n" +
+			"2. \"amount\"      (numeric, required) The amount in TWINS to send. eg 0.1\n" +
+			"3. \"comment\"     (string, optional) A comment used to store what the transaction is for.\n" +
+			"4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization to which you're sending the transaction.\n\n" +
+			"Result:\n" +
+			"\"transactionid\"  (string) The transaction id.\n\n" +
+			"Examples:\n" +
+			"> fix-cli sendtoaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 0.1\n" +
+			"> fix-cli sendtoaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 0.1 \"donation\" \"seans outpost\"",
 
-	"listunspent": "listunspent ( minconf maxconf  [\"address\",...] )\n\n" +
-		"Returns array of unspent transaction outputs with between minconf and maxconf confirmations.\n\n" +
-		"Arguments:\n" +
-		"1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n" +
-		"2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n" +
-		"3. \"addresses\"    (string) A json array of FIX addresses to filter\n\n" +
-		"Result:\n" +
-		"[                   (array of json object)\n" +
-		"  {\n" +
-		"    \"txid\" : \"txid\",        (string) the transaction id\n" +
-		"    \"vout\" : n,               (numeric) the vout value\n" +
-		"    \"address\" : \"address\",  (string) the FIX address\n" +
-		"    \"account\" : \"account\",  (string) The associated account, or \"\" for the default account\n" +
-		"    \"scriptPubKey\" : \"key\", (string) the script key\n" +
-		"    \"amount\" : x.xxx,         (numeric) the transaction amount in FIX\n" +
-		"    \"confirmations\" : n       (numeric) The number of confirmations\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli listunspent\n" +
-		"> fix-cli listunspent 6 9999999 \"[\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\",\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\"]\"",
+		"listunspent": "listunspent ( minconf maxconf  [\"address\",...] )\n\n" +
+			"Returns array of unspent transaction outputs with between minconf and maxconf confirmations.\n\n" +
+			"Arguments:\n" +
+			"1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n" +
+			"2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n" +
+			"3. \"addresses\"    (string) A json array of TWINS addresses to filter\n\n" +
+			"Result:\n" +
+			"[                   (array of json object)\n" +
+			"  {\n" +
+			"    \"txid\" : \"txid\",        (string) the transaction id\n" +
+			"    \"vout\" : n,               (numeric) the vout value\n" +
+			"    \"address\" : \"address\",  (string) the TWINS address\n" +
+			"    \"account\" : \"account\",  (string) The associated account, or \"\" for the default account\n" +
+			"    \"scriptPubKey\" : \"key\", (string) the script key\n" +
+			"    \"amount\" : x.xxx,         (numeric) the transaction amount in TWINS\n" +
+			"    \"confirmations\" : n       (numeric) The number of confirmations\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli listunspent\n" +
+			"> fix-cli listunspent 6 9999999 \"[\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\",\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\"]\"",
 
-	"lockunspent": "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n\n" +
-		"Updates list of temporarily unspendable outputs.\n\n" +
-		"Arguments:\n" +
-		"1. unlock            (boolean, required) Whether to unlock (true) or lock (false) the specified transactions\n" +
-		"2. \"transactions\"  (string) A json array of json objects. Each object has txid (string) vout (numeric)\n" +
-		"     [\n" +
-		"       {\n" +
-		"         \"txid\":\"id\",    (string) The transaction id\n" +
-		"         \"vout\": n        (numeric) The output number\n" +
-		"       }\n" +
-		"       ,...\n" +
-		"     ]\n\n" +
-		"Result:\n" +
-		"true|false    (boolean) Whether the command was successful or not\n\n" +
-		"Examples:\n" +
-		"> fix-cli lockunspent false \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"",
+		"lockunspent": "lockunspent unlock [{\"txid\":\"txid\",\"vout\":n},...]\n\n" +
+			"Updates list of temporarily unspendable outputs.\n\n" +
+			"Arguments:\n" +
+			"1. unlock            (boolean, required) Whether to unlock (true) or lock (false) the specified transactions\n" +
+			"2. \"transactions\"  (string) A json array of json objects. Each object has txid (string) vout (numeric)\n" +
+			"     [\n" +
+			"       {\n" +
+			"         \"txid\":\"id\",    (string) The transaction id\n" +
+			"         \"vout\": n        (numeric) The output number\n" +
+			"       }\n" +
+			"       ,...\n" +
+			"     ]\n\n" +
+			"Result:\n" +
+			"true|false    (boolean) Whether the command was successful or not\n\n" +
+			"Examples:\n" +
+			"> fix-cli lockunspent false \"[{\\\"txid\\\":\\\"a08e6907dbbd3d809776dbfc5d82e371b764ed838b5655e72f463568df1aadf0\\\",\\\"vout\\\":1}]\"",
 
-	"listlockunspent": "listlockunspent\n\n" +
-		"Returns list of temporarily unspendable outputs.\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"txid\" : \"transactionid\",     (string) The transaction id locked\n" +
-		"    \"vout\" : n                      (numeric) The vout value\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli listlockunspent",
+		"listlockunspent": "listlockunspent\n\n" +
+			"Returns list of temporarily unspendable outputs.\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"txid\" : \"transactionid\",     (string) The transaction id locked\n" +
+			"    \"vout\" : n                      (numeric) The vout value\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli listlockunspent",
 
-	"encryptwallet": "encryptwallet \"passphrase\"\n\n" +
-		"Encrypts the wallet with 'passphrase'.\n\n" +
-		"Arguments:\n" +
-		"1. \"passphrase\"    (string) The pass phrase to encrypt the wallet with. Must be at least 1 character.\n\n" +
-		"Result:\n" +
-		"\"result\"           (string) A string describing the result\n\n" +
-		"IMPORTANT: Any previous backups you have made of this wallet are now invalid!\n" +
-		"Make new backups using the backupwallet command.\n\n" +
-		"Examples:\n" +
-		"> fix-cli encryptwallet \"my pass phrase\"",
+		"encryptwallet": "encryptwallet \"passphrase\"\n\n" +
+			"Encrypts the wallet with 'passphrase'.\n\n" +
+			"Arguments:\n" +
+			"1. \"passphrase\"    (string) The pass phrase to encrypt the wallet with. Must be at least 1 character.\n\n" +
+			"Result:\n" +
+			"\"result\"           (string) A string describing the result\n\n" +
+			"IMPORTANT: Any previous backups you have made of this wallet are now invalid!\n" +
+			"Make new backups using the backupwallet command.\n\n" +
+			"Examples:\n" +
+			"> fix-cli encryptwallet \"my pass phrase\"",
 
-	"walletpassphrase": "walletpassphrase \"passphrase\" timeout ( stakingonly )\n\n" +
-		"Stores the wallet decryption key in memory for 'timeout' seconds.\n\n" +
-		"Arguments:\n" +
-		"1. \"passphrase\"     (string, required) The wallet passphrase\n" +
-		"2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n" +
-		"3. stakingonly        (boolean, optional, default=false) If true, the wallet will only be unlocked for staking\n\n" +
-		"Examples:\n" +
-		"> fix-cli walletpassphrase \"my pass phrase\" 60\n" +
-		"> fix-cli walletpassphrase \"my pass phrase\" 3600 true",
+		"walletpassphrase": "walletpassphrase \"passphrase\" timeout ( stakingonly )\n\n" +
+			"Stores the wallet decryption key in memory for 'timeout' seconds.\n\n" +
+			"Arguments:\n" +
+			"1. \"passphrase\"     (string, required) The wallet passphrase\n" +
+			"2. timeout            (numeric, required) The time to keep the decryption key in seconds.\n" +
+			"3. stakingonly        (boolean, optional, default=false) If true, the wallet will only be unlocked for staking\n\n" +
+			"Examples:\n" +
+			"> fix-cli walletpassphrase \"my pass phrase\" 60\n" +
+			"> fix-cli walletpassphrase \"my pass phrase\" 3600 true",
 
-	"walletlock": "walletlock\n\n" +
-		"Removes the wallet encryption key from memory, locking the wallet.\n" +
-		"After calling this method, you will need to call walletpassphrase again before being able to call methods which require the wallet to be unlocked.\n\n" +
-		"Examples:\n" +
-		"> fix-cli walletlock",
+		"walletlock": "walletlock\n\n" +
+			"Removes the wallet encryption key from memory, locking the wallet.\n" +
+			"After calling this method, you will need to call walletpassphrase again before being able to call methods which require the wallet to be unlocked.\n\n" +
+			"Examples:\n" +
+			"> fix-cli walletlock",
 
-	"dumpprivkey": "dumpprivkey \"fixaddress\"\n\n" +
-		"Reveals the private key corresponding to 'fixaddress'.\n\n" +
-		"Arguments:\n" +
-		"1. \"fixaddress\"   (string, required) The FIX address for the private key\n\n" +
-		"Result:\n" +
-		"\"key\"                (string) The private key\n\n" +
-		"Examples:\n" +
-		"> fix-cli dumpprivkey \"myaddress\"",
+		"dumpprivkey": "dumpprivkey \"twinsaddress\"\n\n" +
+			"Reveals the private key corresponding to 'twinsaddress'.\n\n" +
+			"Arguments:\n" +
+			"1. \"twinsaddress\"   (string, required) The TWINS address for the private key\n\n" +
+			"Result:\n" +
+			"\"key\"                (string) The private key\n\n" +
+			"Examples:\n" +
+			"> fix-cli dumpprivkey \"myaddress\"",
 
-	"importprivkey": "importprivkey \"fixprivkey\" ( \"label\" rescan )\n\n" +
-		"Adds a private key (as returned by dumpprivkey) to your wallet.\n\n" +
-		"Arguments:\n" +
-		"1. \"fixprivkey\"   (string, required) The private key (see dumpprivkey)\n" +
-		"2. \"label\"            (string, optional, default=\"\") An optional label\n" +
-		"3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n\n" +
-		"Examples:\n" +
-		"> fix-cli importprivkey \"mykey\"\n" +
-		"> fix-cli importprivkey \"mykey\" \"testing\" false",
+		"importprivkey": "importprivkey \"twinsprivkey\" ( \"label\" rescan )\n\n" +
+			"Adds a private key (as returned by dumpprivkey) to your wallet.\n\n" +
+			"Arguments:\n" +
+			"1. \"twinsprivkey\"   (string, required) The private key (see dumpprivkey)\n" +
+			"2. \"label\"            (string, optional, default=\"\") An optional label\n" +
+			"3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n\n" +
+			"Examples:\n" +
+			"> fix-cli importprivkey \"mykey\"\n" +
+			"> fix-cli importprivkey \"mykey\" \"testing\" false",
 
-	"validateaddress": "validateaddress \"fixaddress\"\n\n" +
-		"Return information about the given FIX address.\n\n" +
-		"Arguments:\n" +
-		"1. \"fixaddress\"     (string, required) The FIX address to validate\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n" +
-		"  \"address\" : \"fixaddress\", (string) The FIX address validated\n" +
-		"  \"ismine\" : true|false,        (boolean) If the address is yours or not\n" +
-		"  \"isscript\" : true|false,      (boolean) If the key is a script\n" +
-		"  \"pubkey\" : \"publickeyhex\",  (string) The hex value of the raw public key\n" +
-		"  \"iscompressed\" : true|false,  (boolean) If the address is compressed\n" +
-		"  \"account\" : \"account\"       (string) The account associated with the address\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli validateaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\"",
+		"validateaddress": "validateaddress \"twinsaddress\"\n\n" +
+			"Return information about the given TWINS address.\n\n" +
+			"Arguments:\n" +
+			"1. \"twinsaddress\"     (string, required) The TWINS address to validate\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n" +
+			"  \"address\" : \"twinsaddress\", (string) The TWINS address validated\n" +
+			"  \"ismine\" : true|false,        (boolean) If the address is yours or not\n" +
+			"  \"isscript\" : true|false,      (boolean) If the key is a script\n" +
+			"  \"pubkey\" : \"publickeyhex\",  (string) The hex value of the raw public key\n" +
+			"  \"iscompressed\" : true|false,  (boolean) If the address is compressed\n" +
+			"  \"account\" : \"account\"       (string) The account associated with the address\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli validateaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\"",
 
-	// === Network Commands ===
-	"getconnectioncount": "getconnectioncount\n\n" +
-		"Returns the number of connections to other nodes.\n\n" +
-		"Result:\n" +
-		"n          (numeric) The connection count\n\n" +
-		"Examples:\n" +
-		"> fix-cli getconnectioncount",
+		// === Network Commands ===
+		"getconnectioncount": "getconnectioncount\n\n" +
+			"Returns the number of connections to other nodes.\n\n" +
+			"Result:\n" +
+			"n          (numeric) The connection count\n\n" +
+			"Examples:\n" +
+			"> fix-cli getconnectioncount",
 
-	"getpeerinfo": "getpeerinfo\n\n" +
-		"Returns data about each connected network node as a json array of objects.\n\n" +
-		"Result:\n" +
-		"[\n" +
-		"  {\n" +
-		"    \"id\": n,                   (numeric) Peer index\n" +
-		"    \"addr\":\"host:port\",      (string) The ip address and port of the peer\n" +
-		"    \"addrlocal\":\"ip:port\",   (string) local address\n" +
-		"    \"services\":\"xxxxxxxxxxxxxxxx\", (string) The services offered\n" +
-		"    \"lastsend\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last send\n" +
-		"    \"lastrecv\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n" +
-		"    \"bytessent\": n,            (numeric) The total bytes sent\n" +
-		"    \"bytesrecv\": n,            (numeric) The total bytes received\n" +
-		"    \"conntime\": ttt,           (numeric) The connection time in seconds since epoch (Jan 1 1970 GMT)\n" +
-		"    \"pingtime\": n,             (numeric) ping time\n" +
-		"    \"version\": v,              (numeric) The peer version\n" +
-		"    \"subver\": \"/Satoshi:x.x.x/\",  (string) The string version\n" +
-		"    \"inbound\": true|false,     (boolean) Inbound (true) or Outbound (false)\n" +
-		"    \"startingheight\": n,       (numeric) The starting height (block) of the peer\n" +
-		"    \"banscore\": n,             (numeric) The ban score\n" +
-		"    \"synced_headers\": n,       (numeric) The last header we have in common with this peer\n" +
-		"    \"synced_blocks\": n,        (numeric) The last block we have in common with this peer\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"]\n\n" +
-		"Examples:\n" +
-		"> fix-cli getpeerinfo",
+		"getpeerinfo": "getpeerinfo\n\n" +
+			"Returns data about each connected network node as a json array of objects.\n\n" +
+			"Result:\n" +
+			"[\n" +
+			"  {\n" +
+			"    \"id\": n,                   (numeric) Peer index\n" +
+			"    \"addr\":\"host:port\",      (string) The ip address and port of the peer\n" +
+			"    \"addrlocal\":\"ip:port\",   (string) local address\n" +
+			"    \"services\":\"xxxxxxxxxxxxxxxx\", (string) The services offered\n" +
+			"    \"lastsend\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last send\n" +
+			"    \"lastrecv\": ttt,           (numeric) The time in seconds since epoch (Jan 1 1970 GMT) of the last receive\n" +
+			"    \"bytessent\": n,            (numeric) The total bytes sent\n" +
+			"    \"bytesrecv\": n,            (numeric) The total bytes received\n" +
+			"    \"conntime\": ttt,           (numeric) The connection time in seconds since epoch (Jan 1 1970 GMT)\n" +
+			"    \"pingtime\": n,             (numeric) ping time\n" +
+			"    \"version\": v,              (numeric) The peer version\n" +
+			"    \"subver\": \"/Satoshi:x.x.x/\",  (string) The string version\n" +
+			"    \"inbound\": true|false,     (boolean) Inbound (true) or Outbound (false)\n" +
+			"    \"startingheight\": n,       (numeric) The starting height (block) of the peer\n" +
+			"    \"banscore\": n,             (numeric) The ban score\n" +
+			"    \"synced_headers\": n,       (numeric) The last header we have in common with this peer\n" +
+			"    \"synced_blocks\": n,        (numeric) The last block we have in common with this peer\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"]\n\n" +
+			"Examples:\n" +
+			"> fix-cli getpeerinfo",
 
-	"addnode": "addnode \"node\" \"add|remove|onetry\"\n\n" +
-		"Attempts add or remove a node from the addnode list or try a connection to a node once.\n\n" +
-		"Arguments:\n" +
-		"1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n" +
-		"2. \"command\"  (string, required) 'add' to add a node to the list, 'remove' to remove a node from the list, 'onetry' to try a connection to the node once\n\n" +
-		"Examples:\n" +
-		"> fix-cli addnode \"192.168.0.6:17464\" \"onetry\"\n" +
-		"> fix-cli addnode \"192.168.0.6:17464\" \"add\"",
+		"addnode": "addnode \"node\" \"add|remove|onetry\"\n\n" +
+			"Attempts add or remove a node from the addnode list or try a connection to a node once.\n\n" +
+			"Arguments:\n" +
+			"1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n" +
+			"2. \"command\"  (string, required) 'add' to add a node to the list, 'remove' to remove a node from the list, 'onetry' to try a connection to the node once\n\n" +
+			"Examples:\n" +
+			"> fix-cli addnode \"192.168.0.6:37817\" \"onetry\"\n" +
+			"> fix-cli addnode \"192.168.0.6:37817\" \"add\"",
 
-	"disconnectnode": "disconnectnode \"node\"\n\n" +
-		"Immediately disconnects from the specified node.\n\n" +
-		"Arguments:\n" +
-		"1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n\n" +
-		"Examples:\n" +
-		"> fix-cli disconnectnode \"192.168.0.6:17464\"",
+		"disconnectnode": "disconnectnode \"node\"\n\n" +
+			"Immediately disconnects from the specified node.\n\n" +
+			"Arguments:\n" +
+			"1. \"node\"     (string, required) The node (see getpeerinfo for nodes)\n\n" +
+			"Examples:\n" +
+			"> fix-cli disconnectnode \"192.168.0.6:37817\"",
 
-	"getnetworkinfo": "getnetworkinfo\n\n" +
-		"Returns an object containing various state info regarding P2P networking.\n\n" +
-		"Result:\n" +
-		"{\n" +
-		"  \"version\": xxxxx,                      (numeric) the server version\n" +
-		"  \"subversion\": \"/Satoshi:x.x.x/\",     (string) the server subversion string\n" +
-		"  \"protocolversion\": xxxxx,              (numeric) the protocol version\n" +
-		"  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n" +
-		"  \"timeoffset\": xxxxx,                   (numeric) the time offset\n" +
-		"  \"connections\": xxxxx,                  (numeric) the number of connections\n" +
-		"  \"networks\": [                          (array) information per network\n" +
-		"  {\n" +
-		"    \"name\": \"xxx\",                     (string) network (ipv4, ipv6 or onion)\n" +
-		"    \"limited\": true|false,               (boolean) is the network limited using -onlynet?\n" +
-		"    \"reachable\": true|false,             (boolean) is the network reachable?\n" +
-		"    \"proxy\": \"host:port\"               (string) the proxy that is used for this network, or empty if none\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"  ],\n" +
-		"  \"relayfee\": x.xxxxxxxx,                (numeric) minimum relay fee for non-free transactions in FIX/kB\n" +
-		"  \"localaddresses\": [                    (array) list of local addresses\n" +
-		"  {\n" +
-		"    \"address\": \"xxxx\",                 (string) network address\n" +
-		"    \"port\": xxx,                         (numeric) network port\n" +
-		"    \"score\": xxx                         (numeric) relative score\n" +
-		"  }\n" +
-		"  ,...\n" +
-		"  ]\n" +
-		"}\n\n" +
-		"Examples:\n" +
-		"> fix-cli getnetworkinfo",
+		"getnetworkinfo": "getnetworkinfo\n\n" +
+			"Returns an object containing various state info regarding P2P networking.\n\n" +
+			"Result:\n" +
+			"{\n" +
+			"  \"version\": xxxxx,                      (numeric) the server version\n" +
+			"  \"subversion\": \"/Satoshi:x.x.x/\",     (string) the server subversion string\n" +
+			"  \"protocolversion\": xxxxx,              (numeric) the protocol version\n" +
+			"  \"localservices\": \"xxxxxxxxxxxxxxxx\", (string) the services we offer to the network\n" +
+			"  \"timeoffset\": xxxxx,                   (numeric) the time offset\n" +
+			"  \"connections\": xxxxx,                  (numeric) the number of connections\n" +
+			"  \"networks\": [                          (array) information per network\n" +
+			"  {\n" +
+			"    \"name\": \"xxx\",                     (string) network (ipv4, ipv6 or onion)\n" +
+			"    \"limited\": true|false,               (boolean) is the network limited using -onlynet?\n" +
+			"    \"reachable\": true|false,             (boolean) is the network reachable?\n" +
+			"    \"proxy\": \"host:port\"               (string) the proxy that is used for this network, or empty if none\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"  ],\n" +
+			"  \"relayfee\": x.xxxxxxxx,                (numeric) minimum relay fee for non-free transactions in FIX/kB\n" +
+			"  \"localaddresses\": [                    (array) list of local addresses\n" +
+			"  {\n" +
+			"    \"address\": \"xxxx\",                 (string) network address\n" +
+			"    \"port\": xxx,                         (numeric) network port\n" +
+			"    \"score\": xxx                         (numeric) relative score\n" +
+			"  }\n" +
+			"  ,...\n" +
+			"  ]\n" +
+			"}\n\n" +
+			"Examples:\n" +
+			"> fix-cli getnetworkinfo",
 
 	// === Mempool Commands ===
 	"getrawmempool": "getrawmempool ( verbose )\n\n" +
@@ -790,7 +803,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool in seconds since 1 Jan 1970 GMT\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"startingpriority\" : n, (numeric) priority when transaction entered pool\n" +
@@ -823,7 +836,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{                           (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -848,7 +861,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -874,7 +887,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -995,17 +1008,17 @@ var commandHelpTexts = map[string]string{
 	"masternodeconnect": "masternodeconnect \"address\"\n\n" +
 		"Attempts to connect to specified masternode address.\n\n" +
 		"Arguments:\n" +
-		"1. \"address\"     (string, required) IP address and port of the masternode (e.g. \"192.168.0.6:17464\")\n\n" +
+		"1. \"address\"     (string, required) IP address and port of the masternode (e.g. \"192.168.0.6:37817\")\n\n" +
 		"Result:\n" +
 		"\"status\"         (string) Connection attempt result\n\n" +
 		"Examples:\n" +
-		"> fix-cli masternodeconnect \"192.168.0.6:17464\"",
+		"> fix-cli masternodeconnect \"192.168.0.6:37817\"",
 
 	"getpoolinfo": "getpoolinfo\n\n" +
 		"Returns anonymous pool-related information.\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"current\": \"addr\",    (string) FIX address of current masternode\n" +
+		"  \"current\": \"addr\",    (string) TWINS address of current masternode\n" +
 		"  \"state\": xxxx,        (string) Current state of the pool\n" +
 		"  \"entries\": xxxx,      (numeric) Number of entries in the pool\n" +
 		"  \"accepted\": xxxx,     (numeric) Number of accepted entries\n" +
@@ -1093,17 +1106,17 @@ var commandHelpTexts = map[string]string{
 
 	// === Additional Wallet Commands ===
 	"getaccountaddress": "getaccountaddress \"account\"\n\n" +
-		"Returns the current FIX address for receiving payments to this account.\n\n" +
+		"Returns the current TWINS address for receiving payments to this account.\n\n" +
 		"Arguments:\n" +
 		"1. \"account\"       (string, required) The account name. It can also be set to the empty string \"\" to represent the default account.\n\n" +
 		"Result:\n" +
-		"\"fixaddress\"   (string) The account FIX address\n\n" +
+		"\"twinsaddress\"   (string) The account TWINS address\n\n" +
 		"Examples:\n" +
 		"> fix-cli getaccountaddress \"\"\n" +
 		"> fix-cli getaccountaddress \"myaccount\"",
 
 	"getrawchangeaddress": "getrawchangeaddress\n\n" +
-		"Returns a new FIX address for receiving change. This is for use with raw transactions, NOT normal use.\n\n" +
+		"Returns a new TWINS address for receiving change. This is for use with raw transactions, NOT normal use.\n\n" +
 		"Result:\n" +
 		"\"address\"    (string) The address\n\n" +
 		"Examples:\n" +
@@ -1112,17 +1125,17 @@ var commandHelpTexts = map[string]string{
 	"getunconfirmedbalance": "getunconfirmedbalance\n\n" +
 		"Returns the server's total unconfirmed balance.\n\n" +
 		"Result:\n" +
-		"n            (numeric) The total unconfirmed balance in FIX\n\n" +
+		"n            (numeric) The total unconfirmed balance in TWINS\n\n" +
 		"Examples:\n" +
 		"> fix-cli getunconfirmedbalance",
 
-	"sendfrom": "sendfrom \"fromaccount\" \"tofixaddress\" amount ( minconf \"comment\" \"comment-to\" )\n\n" +
-		"Send an amount from an account to a FIX address.\n" +
+	"sendfrom": "sendfrom \"fromaccount\" \"totwinsaddress\" amount ( minconf \"comment\" \"comment-to\" )\n\n" +
+		"Send an amount from an account to a TWINS address.\n" +
 		"The amount is a real and is rounded to the nearest 0.00000001.\n\n" +
 		"Arguments:\n" +
 		"1. \"fromaccount\"       (string, required) The name of the account to send funds from. Default account is \"\".\n" +
-		"2. \"tofixaddress\"  (string, required) The FIX address to send funds to.\n" +
-		"3. amount                (numeric, required) The amount in FIX (transaction fee is added on top).\n" +
+		"2. \"totwinsaddress\"  (string, required) The TWINS address to send funds to.\n" +
+		"3. amount                (numeric, required) The amount in TWINS (transaction fee is added on top).\n" +
 		"4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n" +
 		"5. \"comment\"           (string, optional) A comment used to store what the transaction is for.\n" +
 		"6. \"comment-to\"       (string, optional) An optional comment to store the name of the person or organization.\n\n" +
@@ -1138,7 +1151,7 @@ var commandHelpTexts = map[string]string{
 		"1. \"fromaccount\"         (string, required) The account to send the funds from. Should be \"\" for the default account.\n" +
 		"2. \"amounts\"             (string, required) A json object with addresses and amounts\n" +
 		"    {\n" +
-		"      \"address\":amount   (numeric) The FIX address is the key, the numeric amount in FIX is the value\n" +
+		"      \"address\":amount   (numeric) The TWINS address is the key, the numeric amount in TWINS is the value\n" +
 		"      ,...\n" +
 		"    }\n" +
 		"3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n" +
@@ -1148,18 +1161,18 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli sendmany \"\" \"{\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\":0.01,\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\":0.02}\"",
 
-	"setaccount": "setaccount \"fixaddress\" \"account\"\n\n" +
+	"setaccount": "setaccount \"twinsaddress\" \"account\"\n\n" +
 		"Sets the account associated with the given address.\n\n" +
 		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address to be associated with an account.\n" +
+		"1. \"twinsaddress\"  (string, required) The TWINS address to be associated with an account.\n" +
 		"2. \"account\"         (string, required) The account to assign the address to.\n\n" +
 		"Examples:\n" +
 		"> fix-cli setaccount \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" \"tabby\"",
 
-	"getaccount": "getaccount \"fixaddress\"\n\n" +
+	"getaccount": "getaccount \"twinsaddress\"\n\n" +
 		"Returns the account associated with the given address.\n\n" +
 		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address for account lookup.\n\n" +
+		"1. \"twinsaddress\"  (string, required) The TWINS address for account lookup.\n\n" +
 		"Result:\n" +
 		"\"accountname\"        (string) the account address belongs to\n\n" +
 		"Examples:\n" +
@@ -1171,19 +1184,19 @@ var commandHelpTexts = map[string]string{
 		"1. \"account\"        (string, required) The account name.\n\n" +
 		"Result:\n" +
 		"[                     (json array of string)\n" +
-		"  \"fixaddress\"  (string) a FIX address associated with the given account\n" +
+		"  \"twinsaddress\"  (string) a TWINS address associated with the given account\n" +
 		"  ,...\n" +
 		"]\n\n" +
 		"Examples:\n" +
 		"> fix-cli getaddressesbyaccount \"tabby\"",
 
-	"getreceivedbyaddress": "getreceivedbyaddress \"fixaddress\" ( minconf )\n\n" +
-		"Returns the total amount received by the given FIX address in transactions with at least minconf confirmations.\n\n" +
+	"getreceivedbyaddress": "getreceivedbyaddress \"twinsaddress\" ( minconf )\n\n" +
+		"Returns the total amount received by the given TWINS address in transactions with at least minconf confirmations.\n\n" +
 		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address for transactions.\n" +
+		"1. \"twinsaddress\"  (string, required) The TWINS address for transactions.\n" +
 		"2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n\n" +
 		"Result:\n" +
-		"amount   (numeric) The total amount in FIX received at this address.\n\n" +
+		"amount   (numeric) The total amount in TWINS received at this address.\n\n" +
 		"Examples:\n" +
 		"> fix-cli getreceivedbyaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\"\n" +
 		"> fix-cli getreceivedbyaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 6",
@@ -1194,7 +1207,7 @@ var commandHelpTexts = map[string]string{
 		"1. \"account\"      (string, required) The selected account, may be the default account using \"\".\n" +
 		"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n\n" +
 		"Result:\n" +
-		"amount              (numeric) The total amount in FIX received for this account.\n\n" +
+		"amount              (numeric) The total amount in TWINS received for this account.\n\n" +
 		"Examples:\n" +
 		"> fix-cli getreceivedbyaccount \"\"\n" +
 		"> fix-cli getreceivedbyaccount \"tabby\" 6",
@@ -1211,7 +1224,7 @@ var commandHelpTexts = map[string]string{
 		"    \"involvesWatchonly\": true,   (bool) Only returned if imported addresses were involved in transaction\n" +
 		"    \"address\" : \"receivingaddress\",  (string) The receiving address\n" +
 		"    \"account\" : \"accountname\",  (string) The account of the receiving address.\n" +
-		"    \"amount\" : x.xxx,                  (numeric) The total amount in FIX received by the address\n" +
+		"    \"amount\" : x.xxx,                  (numeric) The total amount in TWINS received by the address\n" +
 		"    \"confirmations\" : n                 (numeric) The number of confirmations of the most recent transaction included\n" +
 		"  }\n" +
 		"  ,...\n" +
@@ -1252,10 +1265,10 @@ var commandHelpTexts = map[string]string{
 		"[\n" +
 		"  {\n" +
 		"    \"account\":\"accountname\",       (string) The account name associated with the transaction.\n" +
-		"    \"address\":\"fixaddress\",    (string) The FIX address of the transaction.\n" +
+		"    \"address\":\"twinsaddress\",    (string) The TWINS address of the transaction.\n" +
 		"    \"category\":\"send|receive|stake\", (string) The transaction category.\n" +
-		"    \"amount\": x.xxx,                 (numeric) The amount in FIX.\n" +
-		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in FIX. This is negative and only available for the 'send' category.\n" +
+		"    \"amount\": x.xxx,                 (numeric) The amount in TWINS.\n" +
+		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in TWINS. This is negative and only available for the 'send' category.\n" +
 		"    \"confirmations\": n,              (numeric) The number of confirmations for the transaction.\n" +
 		"    \"blockhash\": \"hashvalue\",     (string) The block hash containing the transaction.\n" +
 		"    \"blockindex\": n,                 (numeric) The block index containing the transaction.\n" +
@@ -1278,7 +1291,7 @@ var commandHelpTexts = map[string]string{
 		"2. \"includeWatchonly\"    (bool, optional, default=false) Whether to include watchonly addresses in balance calculation and details[]\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"amount\" : x.xxx,        (numeric) The transaction amount in FIX\n" +
+		"  \"amount\" : x.xxx,        (numeric) The transaction amount in TWINS\n" +
 		"  \"confirmations\" : n,     (numeric) The number of confirmations\n" +
 		"  \"blockhash\" : \"hash\",  (string) The block hash\n" +
 		"  \"blockindex\" : xx,       (numeric) The block index\n" +
@@ -1289,9 +1302,9 @@ var commandHelpTexts = map[string]string{
 		"  \"details\" : [\n" +
 		"    {\n" +
 		"      \"account\" : \"accountname\",  (string) The account name involved in the transaction\n" +
-		"      \"address\" : \"fixaddress\",   (string) The FIX address involved in the transaction\n" +
+		"      \"address\" : \"twinsaddress\",   (string) The TWINS address involved in the transaction\n" +
 		"      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n" +
-		"      \"amount\" : x.xxx                  (numeric) The amount in FIX\n" +
+		"      \"amount\" : x.xxx                  (numeric) The amount in TWINS\n" +
 		"    }\n" +
 		"    ,...\n" +
 		"  ],\n" +
@@ -1310,10 +1323,10 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"transactions\": [\n" +
 		"    \"account\":\"accountname\",       (string) The account name associated with the transaction.\n" +
-		"    \"address\":\"fixaddress\",    (string) The FIX address of the transaction.\n" +
+		"    \"address\":\"twinsaddress\",    (string) The TWINS address of the transaction.\n" +
 		"    \"category\":\"send|receive\",     (string) The transaction category.\n" +
-		"    \"amount\": x.xxx,                 (numeric) The amount in FIX.\n" +
-		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in FIX.\n" +
+		"    \"amount\": x.xxx,                 (numeric) The amount in TWINS.\n" +
+		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in TWINS.\n" +
 		"    \"confirmations\": n,              (numeric) The number of confirmations for the transaction.\n" +
 		"    \"blockhash\": \"hashvalue\",     (string) The block hash containing the transaction.\n" +
 		"    \"blockindex\": n,                 (numeric) The block index containing the transaction.\n" +
@@ -1350,8 +1363,8 @@ var commandHelpTexts = map[string]string{
 		"[\n" +
 		"  [\n" +
 		"    [\n" +
-		"      \"fixaddress\",     (string) The FIX address\n" +
-		"      amount,                 (numeric) The amount in FIX\n" +
+		"      \"twinsaddress\",     (string) The TWINS address\n" +
+		"      amount,                 (numeric) The amount in TWINS\n" +
 		"      \"account\"             (string, optional) The account\n" +
 		"    ]\n" +
 		"    ,...\n" +
@@ -1362,12 +1375,12 @@ var commandHelpTexts = map[string]string{
 		"> fix-cli listaddressgroupings",
 
 	"getaddressinfo": "getaddressinfo \"address\"\n\n" +
-		"Return information about the given FIX address. Some information requires the address to be in the wallet.\n\n" +
+		"Return information about the given TWINS address. Some information requires the address to be in the wallet.\n\n" +
 		"Arguments:\n" +
-		"1. \"address\"                    (string, required) The FIX address to get the information of.\n\n" +
+		"1. \"address\"                    (string, required) The TWINS address to get the information of.\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"address\" : \"address\",        (string) The FIX address validated\n" +
+		"  \"address\" : \"address\",        (string) The TWINS address validated\n" +
 		"  \"scriptPubKey\" : \"hex\",       (string) The hex encoded scriptPubKey generated by the address\n" +
 		"  \"ismine\" : true|false,          (boolean) If the address is yours or not\n" +
 		"  \"iswatchonly\" : true|false,     (boolean) If the address is watchonly\n" +
@@ -1428,7 +1441,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"[\n" +
 		"  {\n" +
-		"    \"address\": \"addr\",  (string) The FIX address\n" +
+		"    \"address\": \"addr\",  (string) The TWINS address\n" +
 		"    \"label\": \"label\",   (string) The label/account associated with the address\n" +
 		"    \"ismine\": true|false, (boolean) If the key is yours\n" +
 		"  }\n" +
@@ -1437,10 +1450,10 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli listaddresses",
 
-	"signmessage": "signmessage \"fixaddress\" \"message\"\n\n" +
+	"signmessage": "signmessage \"twinsaddress\" \"message\"\n\n" +
 		"Sign a message with the private key of an address.\n\n" +
 		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address to use for the private key.\n" +
+		"1. \"twinsaddress\"  (string, required) The TWINS address to use for the private key.\n" +
 		"2. \"message\"         (string, required) The message to create a signature of.\n\n" +
 		"Result:\n" +
 		"\"signature\"          (string) The signature of the message encoded in base 64\n\n" +
@@ -1448,10 +1461,10 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli signmessage \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" \"my message\"",
 
-	"verifymessage": "verifymessage \"fixaddress\" \"signature\" \"message\"\n\n" +
+	"verifymessage": "verifymessage \"twinsaddress\" \"signature\" \"message\"\n\n" +
 		"Verify a signed message.\n\n" +
 		"Arguments:\n" +
-		"1. \"fixaddress\"  (string, required) The FIX address to use for the signature.\n" +
+		"1. \"twinsaddress\"  (string, required) The TWINS address to use for the signature.\n" +
 		"2. \"signature\"       (string, required) The signature provided by the signer in base 64 encoding.\n" +
 		"3. \"message\"         (string, required) The message that was signed.\n\n" +
 		"Result:\n" +
@@ -1464,9 +1477,9 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"walletversion\": xxxxx,     (numeric) the wallet version\n" +
-		"  \"balance\": xxxxxxx,         (numeric) the total confirmed FIX balance of the wallet\n" +
-		"  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed balance of the wallet in FIX\n" +
-		"  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet in FIX\n" +
+		"  \"balance\": xxxxxxx,         (numeric) the total confirmed TWINS balance of the wallet\n" +
+		"  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed balance of the wallet in TWINS\n" +
+		"  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet in TWINS\n" +
 		"  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n" +
 		"  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n" +
 		"  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n" +
@@ -1531,7 +1544,7 @@ var commandHelpTexts = map[string]string{
 		"Note: Consolidation links UTXOs on the same address on-chain (privacy consideration).\n\n" +
 		"Arguments:\n" +
 		"1. true|false      (boolean, required) Enable/disable auto-combine.\n" +
-		"2. target_amount    (numeric, optional) Target amount in FIX (required when enabling)\n\n" +
+		"2. target_amount    (numeric, optional) Target amount in TWINS (required when enabling)\n\n" +
 		"Result:\n" +
 		"{\n" +
 		"  \"enabled\": true|false,\n" +
@@ -1547,7 +1560,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"enabled\": true|false,\n" +
-		"  \"target\": n,        (numeric) Target amount in FIX\n" +
+		"  \"target\": n,        (numeric) Target amount in TWINS\n" +
 		"  \"cooldown\": n       (numeric) Cooldown between cycles in seconds\n" +
 		"}\n\n" +
 		"Examples:\n" +
@@ -1570,17 +1583,17 @@ var commandHelpTexts = map[string]string{
 
 	"addmultisigaddress": "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n\n" +
 		"Add a nrequired-to-sign multisignature address to the wallet.\n" +
-		"Each key is a FIX address or hex-encoded public key.\n\n" +
+		"Each key is a TWINS address or hex-encoded public key.\n\n" +
 		"Arguments:\n" +
 		"1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n" +
-		"2. \"keysobject\"   (string, required) A json array of FIX addresses or hex-encoded public keys\n" +
+		"2. \"keysobject\"   (string, required) A json array of TWINS addresses or hex-encoded public keys\n" +
 		"     [\n" +
-		"       \"address\"  (string) FIX address or hex-encoded public key\n" +
+		"       \"address\"  (string) TWINS address or hex-encoded public key\n" +
 		"       ...,\n" +
 		"     ]\n" +
 		"3. \"account\"      (string, optional) An account to assign the addresses to.\n\n" +
 		"Result:\n" +
-		"\"fixaddress\"  (string) A FIX address associated with the keys.\n\n" +
+		"\"twinsaddress\"  (string) A TWINS address associated with the keys.\n\n" +
 		"Examples:\n" +
 		"> fix-cli addmultisigaddress 2 \"[\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\",\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\"]\"",
 
@@ -1588,9 +1601,9 @@ var commandHelpTexts = map[string]string{
 		"Creates a multi-signature address with n signature of m keys required.\n\n" +
 		"Arguments:\n" +
 		"1. nrequired      (numeric, required) The number of required signatures out of the n keys or addresses.\n" +
-		"2. \"keys\"       (string, required) A json array of keys which are FIX addresses or hex-encoded public keys\n" +
+		"2. \"keys\"       (string, required) A json array of keys which are TWINS addresses or hex-encoded public keys\n" +
 		"     [\n" +
-		"       \"key\"    (string) FIX address or hex-encoded public key\n" +
+		"       \"key\"    (string) TWINS address or hex-encoded public key\n" +
 		"       ,...\n" +
 		"     ]\n\n" +
 		"Result:\n" +
@@ -1612,14 +1625,14 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"bestblock\" : \"hash\",    (string) the block hash\n" +
 		"  \"confirmations\" : n,       (numeric) The number of confirmations\n" +
-		"  \"value\" : x.xxx,           (numeric) The transaction value in FIX\n" +
+		"  \"value\" : x.xxx,           (numeric) The transaction value in TWINS\n" +
 		"  \"scriptPubKey\" : {         (json object)\n" +
 		"     \"asm\" : \"code\",       (string)\n" +
 		"     \"hex\" : \"hex\",        (string)\n" +
 		"     \"reqSigs\" : n,          (numeric) Number of required signatures\n" +
 		"     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n" +
-		"     \"addresses\" : [          (array of string) array of FIX addresses\n" +
-		"        \"fixaddress\"     (string)\n" +
+		"     \"addresses\" : [          (array of string) array of TWINS addresses\n" +
+		"        \"twinsaddress\"     (string)\n" +
 		"     ]\n" +
 		"  },\n" +
 		"  \"version\" : n,            (numeric) The version\n" +
@@ -1648,7 +1661,7 @@ var commandHelpTexts = map[string]string{
 		"    \"connected\" : true|false,          (boolean) If connected\n" +
 		"    \"addresses\" : [\n" +
 		"       {\n" +
-		"         \"address\" : \"192.168.0.201:17464\",  (string) The FIX server host and port\n" +
+		"         \"address\" : \"192.168.0.201:37817\",  (string) The TWINS server host and port\n" +
 		"         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n" +
 		"       }\n" +
 		"       ,...\n" +
@@ -1811,7 +1824,7 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"txcount\": xxxxx,         (numeric) Number of transactions\n" +
 		"  \"txbytes\": xxxxx,         (numeric) Total size of transactions\n" +
-		"  \"ttlfee\": xxxxx,          (numeric) Sum of all fees in FIX\n" +
+		"  \"ttlfee\": xxxxx,          (numeric) Sum of all fees in TWINS\n" +
 		"  \"feeperkb\": xxxxx,        (numeric) Average fee per kilobyte\n" +
 		"  \"rec_highpriorityfee_perkb\": xxxxx  (numeric) Recommended fee for high priority per kB\n" +
 		"}\n\n" +
@@ -1825,9 +1838,9 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"height\": n,             (numeric) Block height\n" +
-		"  \"blockreward\": x.xxx,   (numeric) Total block reward in FIX\n" +
-		"  \"stakereward\": x.xxx,   (numeric) PoS staker reward in FIX\n" +
-		"  \"mnreward\": x.xxx,      (numeric) Masternode reward in FIX\n" +
+		"  \"blockreward\": x.xxx,   (numeric) Total block reward in TWINS\n" +
+		"  \"stakereward\": x.xxx,   (numeric) PoS staker reward in TWINS\n" +
+		"  \"mnreward\": x.xxx,      (numeric) Masternode reward in TWINS\n" +
 		"  \"stakepercentage\": n,   (numeric) PoS reward percentage\n" +
 		"  \"mnpercentage\": n       (numeric) Masternode reward percentage\n" +
 		"}\n\n" +
@@ -1989,7 +2002,7 @@ var commandHelpTexts = map[string]string{
 
 	"getgenerate": "getgenerate\n\n" +
 		"Return if the server is set to generate coins or not. The default is false.\n" +
-		"It is set with the command line argument -gen (or fix.conf setting gen).\n" +
+		"It is set with the command line argument -gen (or twins.conf setting gen).\n" +
 		"It can also be set with the setgenerate call.\n\n" +
 		"Result:\n" +
 		"true|false      (boolean) If the server is set to generate coins or not\n\n" +
@@ -2071,7 +2084,7 @@ func (s *Server) handleStop(req *Request) *Response {
 	// Return success message
 	return &Response{
 		JSONRPC: "2.0",
-		Result:  "FIX server stopping",
+		Result:  "TWINS server stopping",
 		ID:      req.ID,
 	}
 }
@@ -2118,3 +2131,93 @@ func (s *Server) handleSetLogLevel(req *Request) *Response {
 		ID:      req.ID,
 	}
 }
+
+// handleReloadRPCCerts reloads TLS certificates via RPC (Windows/container
+// fallback for SIGHUP). Requires an argon2id-hashed passphrase configured
+// via rpc.tls.reload_passphrase_file. Per-IP exponential backoff on wrong
+// passphrase (no hard lockout).
+func (s *Server) handleReloadRPCCerts(req *Request) *Response {
+	// Check if TLS + passphrase are configured
+	if s.tlsManager == nil || !s.tlsManager.HasReloadPassphrase() {
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   NewError(-1, "reloadrpccerts is disabled (no reload passphrase configured)", nil),
+			ID:      req.ID,
+		}
+	}
+
+	// Parse passphrase parameter
+	var params []interface{}
+	if err := json.Unmarshal(req.Params, &params); err != nil || len(params) < 1 {
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   NewError(CodeInvalidParams, "Missing required parameter: passphrase", nil),
+			ID:      req.ID,
+		}
+	}
+	passphrase, ok := params[0].(string)
+	if !ok || passphrase == "" {
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   NewError(CodeInvalidParams, "Passphrase must be a non-empty string", nil),
+			ID:      req.ID,
+		}
+	}
+
+	// Extract caller IP for backoff tracking
+	ip := req.RemoteAddr
+	if host, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		ip = host
+	}
+
+	// Check per-IP backoff
+	backoff := s.tlsManager.GetBackoff()
+	if backoff != nil {
+		if wait := backoff.Check(ip); wait > 0 {
+			s.logger.WithFields(logrus.Fields{
+				"ip":           ip,
+				"retry_after_s": int(wait.Seconds()) + 1,
+			}).Warn("reloadrpccerts rate limited")
+			return &Response{
+				JSONRPC: "2.0",
+				Error:   NewError(-1, fmt.Sprintf("rate limited — retry after %d seconds", int(wait.Seconds())+1), nil),
+				ID:      req.ID,
+			}
+		}
+	}
+
+	// Verify passphrase
+	if !s.tlsManager.VerifyReloadPassphrase(passphrase) {
+		if backoff != nil {
+			backoff.RecordFailure(ip)
+		}
+		s.logger.WithField("ip", ip).Warn("reloadrpccerts: incorrect passphrase")
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   NewError(-1, "incorrect passphrase", nil),
+			ID:      req.ID,
+		}
+	}
+
+	// Passphrase correct — reload certificates
+	if err := s.tlsManager.Reload(); err != nil {
+		s.logger.WithError(err).Error("reloadrpccerts: certificate reload failed")
+		return &Response{
+			JSONRPC: "2.0",
+			Error:   NewError(CodeInternalError, "certificate reload failed", nil),
+			ID:      req.ID,
+		}
+	}
+
+	if backoff != nil {
+		backoff.RecordSuccess(ip)
+	}
+	s.logger.WithField("ip", ip).Info("TLS certificates reloaded via reloadrpccerts RPC")
+
+	return &Response{
+		JSONRPC: "2.0",
+		Result:  "TLS certificates reloaded",
+		ID:      req.ID,
+	}
+}
+

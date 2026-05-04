@@ -350,7 +350,7 @@ export const MasternodeConfigDialog: React.FC<MasternodeConfigDialogProps> = ({
         const portNum = parseInt(port, 10);
         if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
           errors.ip = t('config.validation.portRange');
-        } else if (portNum !== 37817) {
+        } else if (portNum !== 17464) {
           // Mainnet port warning (not an error, but informative)
           // For now, just accept it - backend will validate
         }

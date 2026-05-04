@@ -9,7 +9,7 @@
 #
 # Fields:
 #   alias              - Friendly name for the masternode (no spaces)
-#   ip:port            - External IP address and port (default port: 37817)
+#   ip:port            - External IP address and port (default port: 17464)
 #   privkey            - Masternode private key (generate with: fix-cli createmasternodekey)
 #   collateral_txid    - Transaction ID containing the collateral output
 #   collateral_index   - Output index (vout) of the collateral (0-based)
@@ -25,7 +25,7 @@
 # Example entries:
 
 # Bronze tier masternode (1M FIX collateral)
-#mn_bronze 45.32.100.50:37817 93HaYBVUCYjEMeeH1Y4sBGLALQZE1Yc1K64xiqgX37tGBDQL8Xg 2bcd3c84c84f87eaa86e4e56834c92927a07f9e18718810b92e0d0324456a67c 0
+#mn_bronze 45.32.100.50:17464 93HaYBVUCYjEMeeH1Y4sBGLALQZE1Yc1K64xiqgX37tGBDQL8Xg 2bcd3c84c84f87eaa86e4e56834c92927a07f9e18718810b92e0d0324456a67c 0
 
 # Silver tier masternode (5M FIX collateral)
-#mn_silver 67.219.107.45:37817 93WaAb3htPJEV8E9aQcN23Jt97bPex7YvWfgMDTUdWJvzmrMqey aa9f1034d973377a5e733272c3d0eced1de22555ad45d6b24abadff8087948d4 0
+#mn_silver 67.219.107.45:17464 93WaAb3htPJEV8E9aQcN23Jt97bPex7YvWfgMDTUdWJvzmrMqey aa9f1034d973377a5e733272c3d0eced1de22555ad45d6b24abadff8087948d4 0

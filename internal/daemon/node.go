@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 
@@ -28,11 +29,11 @@ import (
 
 // NodeConfig provides configuration for creating a new Node.
 type NodeConfig struct {
-	Network    string                          // "mainnet", "testnet", or "regtest"
-	DataDir    string                          // Data directory path
-	Logger     *logrus.Entry                   // Logger instance (nil → default)
+	Network    string          // "mainnet", "testnet", or "regtest"
+	DataDir    string          // Data directory path
+	Logger     *logrus.Entry   // Logger instance (nil → default)
 	OnProgress func(phase string, pct float64) // Optional progress callback for GUI (nil for daemon)
-	Reindex    bool                            // Clear database before opening
+	Reindex    bool            // Clear database before opening
 
 	// Performance tuning (0 = use defaults)
 	Workers           int // Number of worker goroutines
@@ -55,14 +56,18 @@ type Node struct {
 	ChainParams *types.ChainParams
 
 	// Core components (set by NewNode)
-	Storage        storage.Storage
-	Blockchain     blockchain.Blockchain
-	Consensus      consensus.Engine
-	Mempool        mempool.Mempool
-	Masternode     *masternode.Manager
-	Spork          *spork.Manager
-	DebugCollector *debug.Collector           // Masternode debug event collector (nil when disabled)
-	PaymentTracker *masternode.PaymentTracker // In-memory masternode payment statistics
+	Storage         storage.Storage
+	Blockchain      blockchain.Blockchain
+	Consensus       consensus.Engine
+	Mempool         mempool.Mempool
+	Masternode      *masternode.Manager
+	Spork           *spork.Manager
+	// DebugCollector is the masternode debug event collector (nil-pointer when disabled).
+	// Stored as atomic.Pointer so GUI handlers and other lock-free readers can
+	// observe the current collector without taking n.mu, while the subscriber
+	// path still uses n.mu for ordering with shuttingDown.
+	DebugCollector  atomic.Pointer[debug.Collector]
+	PaymentTracker  *masternode.PaymentTracker // In-memory masternode payment statistics
 
 	// Configuration authority (optional, nil for GUI until Phase 3)
 	ConfigManager *config.ConfigManager
@@ -75,10 +80,11 @@ type Node struct {
 	MasternodeConf *masternode.MasternodeConfFile
 
 	// Internal
-	mu           sync.RWMutex
-	shutdownOnce sync.Once
-	rpcConfig    *rpc.Config // Stored for cleanup during shutdown
-	logger       *logrus.Entry
+	mu            sync.RWMutex
+	shutdownOnce  sync.Once
+	shuttingDown  atomic.Bool // Set true at the start of doShutdown so post-shutdown subscriber callbacks can bail out before allocating new resources
+	rpcConfig     *rpc.Config // Stored for cleanup during shutdown
+	logger        *logrus.Entry
 }
 
 // NewNode creates a Node with all core components initialized.
@@ -141,13 +147,13 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 	// Note: Workers/ValidationWorkers are available for future per-component
 	// override; existing components already fall back to runtime.NumCPU().
 	logger.WithFields(logrus.Fields{
-		"cpus":               runtime.NumCPU(),
-		"workers":            cfg.Workers,
+		"cpus":              runtime.NumCPU(),
+		"workers":           cfg.Workers,
 		"validation_workers": cfg.ValidationWorkers,
-		"block_cache_mb":     storageConfig.BlockCacheSize,
-		"app_cache_mb":       storageConfig.CacheSize,
-		"write_buffer_mb":    storageConfig.WriteBufferSize,
-		"max_open_files":     storageConfig.MaxOpenFiles,
+		"block_cache_mb":    storageConfig.BlockCacheSize,
+		"app_cache_mb":      storageConfig.CacheSize,
+		"write_buffer_mb":   storageConfig.WriteBufferSize,
+		"max_open_files":    storageConfig.MaxOpenFiles,
 	}).Info("Performance settings")
 
 	// Handle reindex: clear database before opening
@@ -304,7 +310,7 @@ func NewNode(cfg NodeConfig) (*Node, error) {
 		if err := collector.Enable(); err != nil {
 			logger.WithError(err).Warn("Failed to enable masternode debug collector (non-fatal)")
 		} else {
-			n.DebugCollector = collector
+			n.DebugCollector.Store(collector)
 			mnManager.SetDebugCollector(collector)
 			logger.Info("Masternode debug collector enabled")
 		}
@@ -368,3 +374,4 @@ func (n *Node) ValidateChain(ctx context.Context) error {
 	n.logger.Debug("Chain integrity validated")
 	return nil
 }
+

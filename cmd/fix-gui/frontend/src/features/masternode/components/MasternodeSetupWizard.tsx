@@ -56,7 +56,7 @@ interface WizardState {
 }
 
 const TOTAL_STEPS = 7;
-const DEFAULT_PORT = 37817;
+const DEFAULT_PORT = 17464;
 
 export const MasternodeSetupWizard: React.FC<MasternodeSetupWizardProps> = ({
   isOpen,

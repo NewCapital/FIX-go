@@ -430,6 +430,10 @@ export function InitiateShutdown() {
   return window['go']['main']['App']['InitiateShutdown']();
 }
 
+export function IsDebugCollectorActive() {
+  return window['go']['main']['App']['IsDebugCollectorActive']();
+}
+
 export function IsDevMockMode() {
   return window['go']['main']['App']['IsDevMockMode']();
 }

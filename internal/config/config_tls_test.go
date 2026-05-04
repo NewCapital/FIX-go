@@ -37,7 +37,7 @@ func TestRPCTLSConfigYAMLParsing(t *testing.T) {
 rpc:
   enabled: true
   host: "0.0.0.0"
-  port: 37818
+  port: 17465
   allowPlaintextPublic: true
   tls:
     enabled: true
@@ -52,7 +52,7 @@ rpc:
       caFile: "/etc/twins/ca-bundle.pem"
       pinSHA256: "abc123def456"
 `
-	tmpFile := filepath.Join(t.TempDir(), "twinsd.yml")
+	tmpFile := filepath.Join(t.TempDir(), "fixd.yml")
 	if err := os.WriteFile(tmpFile, []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("failed to write temp config: %v", err)
 	}
@@ -100,9 +100,9 @@ func TestRPCTLSConfigYAMLMinimal(t *testing.T) {
 rpc:
   enabled: true
   host: "127.0.0.1"
-  port: 37818
+  port: 17465
 `
-	tmpFile := filepath.Join(t.TempDir(), "twinsd.yml")
+	tmpFile := filepath.Join(t.TempDir(), "fixd.yml")
 	if err := os.WriteFile(tmpFile, []byte(yamlContent), 0600); err != nil {
 		t.Fatalf("failed to write temp config: %v", err)
 	}
@@ -138,9 +138,9 @@ func TestRPCTLSConfigOverlayMerge(t *testing.T) {
 	overlay := &ConfigOverlay{
 		RPC: &RPCConfigOverlay{
 			TLS: &RPCTLSConfigOverlay{
-				Enabled:  &enabled,
-				CertFile: &certFile,
-				KeyFile:  &keyFile,
+				Enabled:        &enabled,
+				CertFile:       &certFile,
+				KeyFile:        &keyFile,
 				ExpiryWarnDays: &expiryDays,
 				MTLS: &RPCMTLSConfigOverlay{
 					Enabled:      &mtlsEnabled,
@@ -279,7 +279,7 @@ func TestRPCTLSValidation_ValidFullConfig(t *testing.T) {
 }
 
 func TestRPCTLSConfigManagerGetSet(t *testing.T) {
-	cm := NewConfigManager(filepath.Join(t.TempDir(), "twinsd.yml"), nil)
+	cm := NewConfigManager(filepath.Join(t.TempDir(), "fixd.yml"), nil)
 
 	// Check defaults via ConfigManager
 	if cm.GetBool("rpc.tls.enabled") {
@@ -331,12 +331,12 @@ func TestRPCTLSConfigManagerGetSet(t *testing.T) {
 }
 
 func TestRPCTLSConfigManagerMetadata(t *testing.T) {
-	cm := NewConfigManager(filepath.Join(t.TempDir(), "twinsd.yml"), nil)
+	cm := NewConfigManager(filepath.Join(t.TempDir(), "fixd.yml"), nil)
 	meta := cm.GetAllMetadata()
 
 	// Check that all TLS keys are registered
 	tlsKeys := map[string]bool{
-		"rpc.allowPlaintextPublic":      false,
+		"rpc.allowPlaintextPublic":     false,
 		"rpc.tls.enabled":              false,
 		"rpc.tls.certFile":             false,
 		"rpc.tls.keyFile":              false,
@@ -365,7 +365,7 @@ func TestRPCTLSConfigManagerMetadata(t *testing.T) {
 }
 
 func TestRPCTLSYAMLGeneration(t *testing.T) {
-	yamlPath := filepath.Join(t.TempDir(), "twinsd.yml")
+	yamlPath := filepath.Join(t.TempDir(), "fixd.yml")
 	cm := NewConfigManager(yamlPath, nil)
 	if err := cm.LoadOrCreate(); err != nil {
 		t.Fatalf("LoadOrCreate failed: %v", err)
@@ -416,7 +416,7 @@ func TestRPCTLSYAMLGeneration(t *testing.T) {
 
 func TestRPCTLSYAMLRoundTrip(t *testing.T) {
 	// Create config with TLS settings
-	yamlPath := filepath.Join(t.TempDir(), "twinsd.yml")
+	yamlPath := filepath.Join(t.TempDir(), "fixd.yml")
 	cm := NewConfigManager(yamlPath, nil)
 	if err := cm.LoadOrCreate(); err != nil {
 		t.Fatalf("LoadOrCreate failed: %v", err)

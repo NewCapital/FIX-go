@@ -285,10 +285,17 @@ func DiscoverConfigFile() string {
 
 // GetEffectiveConfigPath returns the config file path to use
 // If --config explicitly set, returns that path and explicit=true
-// Otherwise returns auto-discovered config (or empty) and explicit=false
+// Otherwise checks --datadir for fixd.yml, then falls back to ~/.twins/ auto-discovery
 func GetEffectiveConfigPath(c *cli.Context) (path string, explicit bool) {
 	if ConfigWasExplicitlySet(c) {
 		return GetConfigPath(c), true
+	}
+	// Check custom --datadir for fixd.yml before falling back to ~/.fix/
+	if dataDir := GetDataDir(c); dataDir != "" && dataDir != GetFIXBaseDir() {
+		ymlPath := filepath.Join(dataDir, "fixd.yml")
+		if _, err := os.Stat(ymlPath); err == nil {
+			return ymlPath, false
+		}
 	}
 	return DiscoverConfigFile(), false
 }

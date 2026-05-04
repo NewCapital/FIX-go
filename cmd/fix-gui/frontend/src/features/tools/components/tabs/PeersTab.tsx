@@ -625,7 +625,7 @@ export const PeersTab: React.FC = () => {
             /* Multi-line peer mode */
             <div>
               <textarea
-                placeholder={"One peer per line: IP[:port] [alias]\ne.g.\n1.2.3.4\n5.6.7.8:37817 my-node\n9.10.11.12 backup"}
+                placeholder={"One peer per line: IP[:port] [alias]\ne.g.\n1.2.3.4\n5.6.7.8:17464 my-node\n9.10.11.12 backup"}
                 value={multiLineInput}
                 onChange={(e) => { setMultiLineInput(e.target.value); setMultiLineResults(null); }}
                 onKeyDown={(e) => { if (e.key === 'Escape') setShowAddPeer(false); }}

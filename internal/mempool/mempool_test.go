@@ -120,7 +120,7 @@ func createTestMempoolEnv(t testing.TB) *testMempoolEnv {
 	config := DefaultConfig()
 	config.Blockchain = bc
 	config.Consensus = pos
-	config.UTXOSet = bc // Blockchain implements UTXOGetter
+	config.UTXOSet = bc  // Blockchain implements UTXOGetter
 	config.MaxTransactions = 100
 	config.MaxSize = 1024 * 1024 // 1MB
 	config.CleanupInterval = 100 * time.Millisecond
@@ -164,54 +164,6 @@ func createTestTransaction(nonce uint32) *types.Transaction {
 	return tx
 }
 
-// TestAddTransaction_RejectsInvalidSignature pins the fix for the mempool
-// sig-verification gap: tx with properly-formed DER that fails actual
-// secp256k1 verification (flipped last byte) must be rejected, not accepted
-// and relayed (which would earn a ban from legacy peers).
-func TestAddTransaction_RejectsInvalidSignature(t *testing.T) {
-	env := createTestMempoolEnv(t)
-
-	tx := createTestTransaction(1)
-	seedUTXOForTx(t, env.store, tx)
-
-	// Corrupt the signature: flip the last byte of the DER-encoded S value
-	// (the byte immediately before the trailing sighash-type byte). The result
-	// is still valid DER that parses fine but fails to verify against the
-	// expected (pubkey, sighash). This matches the live-network failure mode
-	// on tx 4d4663b43406f1592b88627d6fcc5950edb27e30f14e3bdc68b613767af717f5
-	// better than flipping the sighash-type byte itself.
-	//
-	// scriptSig layout: ss[0] = push opcode (= len(sigWithHashType)),
-	// ss[1..1+sigLen-1] = sigWithHashType, where sigWithHashType = DER || 0x01.
-	// Index of sighash byte = 1+sigLen-1 = sigLen. Last byte of S = sigLen-1.
-	ss := tx.Inputs[0].ScriptSig
-	require.Greater(t, len(ss), 2, "scriptSig too short")
-	sigLen := int(ss[0])
-	require.GreaterOrEqual(t, len(ss), 1+sigLen)
-	ss[sigLen-1] ^= 0x01
-
-	err := env.mp.AddTransaction(tx)
-	require.Error(t, err)
-	me, ok := err.(*MempoolError)
-	require.True(t, ok, "expected MempoolError, got %T", err)
-	assert.Equal(t, RejectInvalid, me.Code)
-	assert.Contains(t, err.Error(), "script verification failed")
-}
-
-// TestAddTransaction_AcceptsValidSignature is the positive control: an
-// unmodified, properly-signed test transaction is accepted. This also
-// guards against an over-eager rejection path in the new verification loop.
-func TestAddTransaction_AcceptsValidSignature(t *testing.T) {
-	env := createTestMempoolEnv(t)
-
-	tx := createTestTransaction(42)
-	seedUTXOForTx(t, env.store, tx)
-
-	err := env.mp.AddTransaction(tx)
-	assert.NoError(t, err)
-	assert.True(t, env.mp.HasTransaction(tx.Hash()))
-}
-
 // seedUTXOForTx pre-seeds the UTXO referenced by a test transaction so
 // mempool validation doesn't reject it as an orphan, using the shared test
 // key's P2PKH scriptPubKey so signature verification succeeds.
@@ -223,7 +175,7 @@ func seedUTXOForTx(t testing.TB, store storage.Storage, tx *types.Transaction) {
 	}
 	for _, in := range tx.Inputs {
 		err := store.StoreUTXO(in.PreviousOutput, &types.TxOutput{
-			Value:        totalOutput + 10000, // output + 0.0001 FIX fee
+			Value:        totalOutput + 10000, // output + 0.0001 TWINS fee
 			ScriptPubKey: scriptPubKey,
 		}, 1, false)
 		require.NoError(t, err)
@@ -281,6 +233,53 @@ func TestAddTransaction(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, 1, env.mp.Count())
+	assert.True(t, env.mp.HasTransaction(tx.Hash()))
+}
+
+// TestAddTransaction_RejectsInvalidSignature pins the fix for the mempool
+// signature-verification gap: a tx with properly-formed DER that fails actual
+// secp256k1 verification (flipped last byte of S) must be rejected, not
+// accepted and relayed (which would earn a ban from legacy peers at
+// CScriptCheck — see legacy/src/main.cpp:2102-2107).
+func TestAddTransaction_RejectsInvalidSignature(t *testing.T) {
+	env := createTestMempoolEnv(t)
+
+	tx := createTestTransaction(1)
+	seedUTXOForTx(t, env.store, tx)
+
+	// Corrupt the signature by flipping the last byte of the DER-encoded S
+	// component. The result is still valid DER that parses fine but fails to
+	// verify against (pubkey, sighash).
+	//
+	// scriptSig layout: ss[0] = push opcode (= len(sigWithHashType)),
+	//                   ss[1..1+sigLen-1] = sigWithHashType,
+	//                   sigWithHashType = DER || 0x01.
+	// Index of sighash byte = sigLen. Last byte of S = sigLen-1.
+	ss := tx.Inputs[0].ScriptSig
+	require.Greater(t, len(ss), 2, "scriptSig too short")
+	sigLen := int(ss[0])
+	require.GreaterOrEqual(t, len(ss), 1+sigLen)
+	ss[sigLen-1] ^= 0x01
+
+	err := env.mp.AddTransaction(tx)
+	require.Error(t, err)
+	me, ok := err.(*MempoolError)
+	require.True(t, ok, "expected MempoolError, got %T", err)
+	assert.Equal(t, RejectInvalid, me.Code)
+	assert.Contains(t, err.Error(), "script verification failed")
+}
+
+// TestAddTransaction_AcceptsValidSignature is the positive control: an
+// unmodified, properly-signed test transaction is accepted. Guards against an
+// over-eager rejection path in the new verification loop.
+func TestAddTransaction_AcceptsValidSignature(t *testing.T) {
+	env := createTestMempoolEnv(t)
+
+	tx := createTestTransaction(42)
+	seedUTXOForTx(t, env.store, tx)
+
+	err := env.mp.AddTransaction(tx)
+	assert.NoError(t, err)
 	assert.True(t, env.mp.HasTransaction(tx.Hash()))
 }
 

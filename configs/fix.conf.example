@@ -18,8 +18,8 @@
 # Run a regression test network (default: 0)
 #regtest=0
 
-# Listen for connections on this port (default: 37817, testnet: 37847)
-#port=37817
+# Listen for connections on this port (default: 17464, testnet: 5447)
+#port=17464
 
 # Maximum number of inbound+outbound connections (default: 125)
 #maxconnections=125
@@ -28,12 +28,12 @@
 #listen=1
 
 # Use as many addnode= settings as you like to connect to specific peers
-#addnode=159.65.195.97:37817
-#addnode=134.209.146.52:37817
-#addnode=46.101.113.6:37817
+#addnode=159.65.195.97:17464
+#addnode=134.209.146.52:17464
+#addnode=46.101.113.6:17464
 
 # Alternatively use connect= to ONLY connect to specific peers (disables DNS seeding)
-#connect=159.65.195.97:37817
+#connect=159.65.195.97:17464
 
 # Bind to given address and always listen on it (default: bind to all interfaces)
 #bind=0.0.0.0
@@ -85,8 +85,8 @@ rpcuser=your_rpc_username
 # Use a strong, random password!
 rpcpassword=your_secure_password_here
 
-# Listen for JSON-RPC connections on this port (default: 37818, testnet: 37848)
-#rpcport=37818
+# Listen for JSON-RPC connections on this port (default: 17465, testnet: 17467)
+#rpcport=17465
 
 # Bind RPC server to this address (default: 127.0.0.1, use 0.0.0.0 for all)
 #rpcbind=127.0.0.1
@@ -157,7 +157,7 @@ rpcpassword=your_secure_password_here
 #masternodeprivkey=your_masternode_private_key_here
 
 # External address to reach this masternode (IP:port)
-#masternodeaddr=1.2.3.4:37817
+#masternodeaddr=1.2.3.4:17464
 
 # Masternode configuration file (default: masternode.conf)
 #mnconf=masternode.conf

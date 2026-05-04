@@ -68,7 +68,7 @@ func registerAllSettings(cm *ConfigManager) {
 		SettingMeta: SettingMeta{
 			Key: "wallet.maxTxFee", Type: TypeInt64, Default: int64(100000000),
 			Category: "wallet", Label: "Maximum Transaction Fee",
-			Description: "Maximum total fee allowed in satoshis (1 FIX = 100,000,000)",
+			Description: "Maximum total fee allowed in satoshis (1 TWINS = 100,000,000)",
 			HotReload:   true, CLIFlag: "maxtxfee",
 			Units: "satoshis", Validation: minmax(0, 1000000000),
 		},
@@ -151,9 +151,9 @@ func registerAllSettings(cm *ConfigManager) {
 		SettingMeta: SettingMeta{
 			Key: "wallet.autoCombineTarget", Type: TypeInt64, Default: int64(100000),
 			Category: "wallet", Label: "Auto-Combine Target",
-			Description: "Target amount in FIX for UTXO consolidation (0 = disabled)",
+			Description: "Target amount in TWINS for UTXO consolidation (0 = disabled)",
 			HotReload:   true, CLIFlag: "autocombine-target",
-			Units: "FIX", Validation: minOnly(0),
+			Units: "TWINS", Validation: minOnly(0),
 		},
 		getter: func(c *Config) interface{} { return c.Wallet.AutoCombineTarget },
 		setter: func(c *Config, v interface{}) error { c.Wallet.AutoCombineTarget = v.(int64); return nil },
@@ -175,9 +175,9 @@ func registerAllSettings(cm *ConfigManager) {
 		SettingMeta: SettingMeta{
 			Key: "staking.stakeSplitThreshold", Type: TypeInt64, Default: int64(200000),
 			Category: "staking", Label: "Stake Split Threshold",
-			Description: "Split staking outputs when reward/2 exceeds this amount in FIX (default: 200000)",
+			Description: "Split staking outputs when reward/2 exceeds this amount in TWINS (default: 200000)",
 			HotReload:   true, CLIFlag: "stakesplitthreshold",
-			Units: "FIX", Validation: minOnly(0),
+			Units: "TWINS", Validation: minOnly(0),
 		},
 		getter: func(c *Config) interface{} { return c.Staking.StakeSplitThreshold },
 		setter: func(c *Config, v interface{}) error { c.Staking.StakeSplitThreshold = v.(int64); return nil },
@@ -564,7 +564,7 @@ func registerAllSettings(cm *ConfigManager) {
 		SettingMeta: SettingMeta{
 			Key: "masternode.serviceAddr", Type: TypeString, Default: "",
 			Category: "masternode", Label: "Service Address",
-			Description: "External IP:port for masternode (e.g. 1.2.3.4:17464)",
+			Description: "External IP:port for masternode (e.g. 1.2.3.4:37817)",
 			HotReload:   false, EnvVar: "FIX_MASTERNODE_SERVICE_ADDR",
 		},
 		getter: func(c *Config) interface{} { return c.Masternode.ServiceAddr },
@@ -599,7 +599,7 @@ func registerAllSettings(cm *ConfigManager) {
 			Key: "masternode.debug", Type: TypeBool, Default: false,
 			Category: "masternode", Label: "Debug Events",
 			Description: "Enable masternode debug event collection to JSONL file",
-			HotReload:   false, EnvVar: "FIX_MASTERNODE_DEBUG",
+			HotReload:   true, EnvVar: "FIX_MASTERNODE_DEBUG",
 		},
 		getter: func(c *Config) interface{} { return c.Masternode.Debug },
 		setter: func(c *Config, v interface{}) error { c.Masternode.Debug = v.(bool); return nil },
@@ -652,7 +652,7 @@ func registerAllSettings(cm *ConfigManager) {
 	})
 	cm.Register(&settingDef{
 		SettingMeta: SettingMeta{
-			Key: "logging.output", Type: TypeString, Default: "./fix.log",
+			Key: "logging.output", Type: TypeString, Default: "./twins.log",
 			Category: "logging", Label: "Log Output",
 			Description: "Log destination (stdout, stderr, or file path)",
 			HotReload:   false, EnvVar: "FIX_LOGGING_OUTPUT",

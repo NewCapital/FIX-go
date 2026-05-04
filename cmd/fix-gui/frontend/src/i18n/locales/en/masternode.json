@@ -183,8 +183,8 @@
       "alias": "Alias",
       "aliasPlaceholder": "e.g., masternode1",
       "ip": "IP Address:Port",
-      "ipPlaceholder": "e.g., 192.168.1.100:37817",
-      "ipHint": "Mainnet port is 37817",
+      "ipPlaceholder": "e.g., 192.168.1.100:17464",
+      "ipHint": "Mainnet port is 17464",
       "privateKey": "Masternode Private Key",
       "privateKeyPlaceholder": "WIF-encoded private key",
       "privateKeyHint": "Click \"Generate\" to create a new key, or paste an existing one",
@@ -213,7 +213,7 @@
       "aliasFormat": "Alias must contain only letters, numbers, and underscores",
       "aliasExists": "A masternode with this alias already exists",
       "ipRequired": "IP address is required",
-      "ipFormat": "IP must be in format IP:Port (e.g., 192.168.1.100:37817)",
+      "ipFormat": "IP must be in format IP:Port (e.g., 192.168.1.100:17464)",
       "portRange": "Port must be between 1 and 65535",
       "privateKeyRequired": "Private key is required",
       "collateralRequired": "Please select a collateral UTXO"
@@ -293,11 +293,11 @@
     "step5": {
       "title": "Network Config",
       "subtitle": "Enter your VPS details",
-      "description": "Enter the IP address of your VPS where the masternode will run. The default port for FIX mainnet is 37817.",
+      "description": "Enter the IP address of your VPS where the masternode will run. The default port for FIX mainnet is 17464.",
       "ipAddress": "IP Address",
       "ipPlaceholder": "e.g., 192.168.1.100",
       "port": "Port",
-      "portHint": "Default mainnet port is 37817",
+      "portHint": "Default mainnet port is 17464",
       "validation": {
         "ipRequired": "IP address is required",
         "ipInvalid": "Invalid IP address format",

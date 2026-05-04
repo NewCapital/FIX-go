@@ -3,10 +3,12 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
+	"crypto/rand"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,9 +20,13 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/crypto/argon2"
+	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	clilib "github.com/NewCapital/FIX-go/internal/cli"
+	"github.com/NewCapital/FIX-go/internal/rpc"
+	"github.com/NewCapital/FIX-go/internal/rpcclient"
 	"github.com/NewCapital/FIX-go/pkg/types"
 )
 
@@ -983,7 +989,12 @@ func main() {
 
 				args := make([]interface{}, c.NArg())
 				for i := 0; i < c.NArg(); i++ {
-					args[i] = c.Args().Get(i)
+					arg := c.Args().Get(i)
+					if v, err := strconv.ParseFloat(arg, 64); err == nil {
+						args[i] = v
+					} else {
+						args[i] = arg
+					}
 				}
 
 				return executeRPC(c, "multisend", args)
@@ -1279,6 +1290,18 @@ func main() {
 					return fmt.Errorf("log level required (trace, debug, info, warn, error, fatal)")
 				}
 				return executeRPC(c, "setloglevel", []interface{}{c.Args().Get(0)})
+			},
+		},
+		{
+			Name:      "reloadrpccerts",
+			Usage:     "Reload TLS certificates (requires reload passphrase)",
+			Category:  "Control",
+			ArgsUsage: "<passphrase>",
+			Action: func(c *cli.Context) error {
+				if c.NArg() < 1 {
+					return fmt.Errorf("passphrase required")
+				}
+				return executeRPC(c, "reloadrpccerts", []interface{}{c.Args().Get(0)})
 			},
 		},
 		// Raw transaction commands
@@ -1677,7 +1700,7 @@ func main() {
 		},
 
 		// NOTE: Budget/Governance commands removed
-		// The budget system (inherited from PIVX/Dash) is permanently disabled in FIX
+		// The budget system (inherited from PIVX/Dash) is permanently disabled in TWINS
 		// via SPORK_13_ENABLE_SUPERBLOCKS set to year 2099. Commands removed:
 		// - preparebudget, submitbudget, mnbudgetvote, mnbudget
 		// - mnbudgetrawvote, mnfinalbudget
@@ -1822,6 +1845,83 @@ func main() {
 				return nil
 			},
 		},
+
+		// === TLS Helper Commands ===
+		{
+			Name:      "rpc-cert-fingerprint",
+			Usage:     "Print SPKI SHA-256 fingerprint of a TLS certificate",
+			Category:  "Utility",
+			ArgsUsage: "<cert-file>",
+			Action: func(c *cli.Context) error {
+				if c.NArg() != 1 {
+					return fmt.Errorf("certificate file path required")
+				}
+				certPath := c.Args().First()
+				certPEM, err := os.ReadFile(certPath)
+				if err != nil {
+					return fmt.Errorf("failed to read certificate: %w", err)
+				}
+				block, _ := pem.Decode(certPEM)
+				if block == nil {
+					return fmt.Errorf("no PEM block found in %s", certPath)
+				}
+				cert, err := x509.ParseCertificate(block.Bytes)
+				if err != nil {
+					return fmt.Errorf("failed to parse certificate: %w", err)
+				}
+				fingerprint := rpcclient.SPKIFingerprint(cert)
+				fmt.Printf("rpc.tls.client.pinSHA256: \"%s\"\n", fingerprint)
+				return nil
+			},
+		},
+		{
+			Name:     "rpc-cert-hash-passphrase",
+			Usage:    "Hash a passphrase for reloadrpccerts RPC (argon2id, stdin-only)",
+			Category: "Utility",
+			Action: func(c *cli.Context) error {
+				// Read passphrase as []byte to minimize secret copies in memory.
+				// argon2.IDKey takes []byte directly, so no string conversion needed.
+				var passBytes []byte
+				if envPass := os.Getenv("FIX_RPC_PASSPHRASE"); envPass != "" {
+					passBytes = []byte(envPass)
+				} else if term.IsTerminal(int(os.Stdin.Fd())) {
+					fmt.Fprint(os.Stderr, "Enter passphrase: ")
+					pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+					if err != nil {
+						return fmt.Errorf("failed to read passphrase: %w", err)
+					}
+					fmt.Fprintln(os.Stderr) // newline after hidden input
+					passBytes = pw
+				} else {
+					scanner := bufio.NewScanner(os.Stdin)
+					if scanner.Scan() {
+						passBytes = append([]byte(nil), scanner.Bytes()...)
+					}
+					if err := scanner.Err(); err != nil {
+						return fmt.Errorf("failed to read passphrase from stdin: %w", err)
+					}
+				}
+				if len(passBytes) == 0 {
+					return fmt.Errorf("empty passphrase")
+				}
+				// Generate argon2id hash: t=3, m=65536 KiB, p=4
+				salt := make([]byte, 16)
+				if _, err := rand.Read(salt); err != nil {
+					return fmt.Errorf("failed to generate salt: %w", err)
+				}
+				hash := argon2.IDKey(passBytes, salt, 3, 65536, 4, 32)
+				// Zero passphrase bytes after hashing
+				for i := range passBytes {
+					passBytes[i] = 0
+				}
+				// PHC format: $argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>
+				fmt.Printf("$argon2id$v=19$m=65536,t=3,p=4$%s$%s\n",
+					base64.RawStdEncoding.EncodeToString(salt),
+					base64.RawStdEncoding.EncodeToString(hash))
+				return nil
+			},
+		},
+
 		{
 			Name:      "help",
 			Usage:     "Show help for a command",
@@ -1842,7 +1942,14 @@ func main() {
 	// "fix-cli getsyncstatus --config=/path" would fail).
 	clilib.PropagateAppFlags(app)
 
-	if err := app.Run(os.Args); err != nil {
+	// Reorder args so app-level flags placed after positional arguments
+	// are moved before them. urfave/cli v2 miscounts positional args when
+	// flags follow them (e.g., "fix-cli getblock <hash> --rpc-host=1.2.3.4"
+	// would fail). This pre-processing fixes all ~60 affected commands.
+	valueFlags, boolFlags := clilib.CollectAppFlagInfo(app.Flags)
+	args := clilib.ReorderSubcommandArgs(os.Args, valueFlags, boolFlags)
+
+	if err := app.Run(args); err != nil {
 		logrus.WithError(err).Fatal("RPC client failed")
 	}
 }
@@ -1880,6 +1987,14 @@ type fixdYAMLConfig struct {
 		Password string `yaml:"password"`
 		Host     string `yaml:"host"`
 		Port     int    `yaml:"port"`
+		TLS      struct {
+			Enabled  bool   `yaml:"enabled"`
+			CertFile string `yaml:"certFile"`
+			Client   struct {
+				CAFile    string `yaml:"caFile"`
+				PinSHA256 string `yaml:"pinSHA256"`
+			} `yaml:"client"`
+		} `yaml:"tls"`
 	} `yaml:"rpc"`
 }
 
@@ -1972,7 +2087,7 @@ func parseCookieFile(cookiePath string) (username, password string, err error) {
 
 // getRPCCredentials gets RPC credentials with priority:
 // 1. CLI flags (--rpc-user, --rpc-password)
-// 2. Config file (fixd.yml or fix.conf)
+// 2. Config file (fixd.yml or twins.conf)
 // 3. Cookie authentication (.cookie file in datadir)
 func getRPCCredentials(c *cli.Context) (username, password string) {
 	// 1. Check CLI flags first (highest priority)
@@ -2022,8 +2137,8 @@ func getRPCCredentials(c *cli.Context) (username, password string) {
 
 // getRPCEndpoint returns RPC host and port with priority:
 // 1. CLI flags (if explicitly set)
-// 2. Config file (fixd.yml or fix.conf)
-// 3. Default values (127.0.0.1:17465)
+// 2. Config file (fixd.yml or twins.conf)
+// 3. Default values (127.0.0.1:37818)
 func getRPCEndpoint(c *cli.Context) (host string, port int) {
 	// Default values
 	host = "127.0.0.1"
@@ -2071,6 +2186,48 @@ func parseYAMLConfigRPC(path string) (host string, port int, err error) {
 	return cfg.RPC.Host, cfg.RPC.Port, nil
 }
 
+// getTLSSettings resolves TLS configuration from CLI flags and daemon YAML
+// auto-detection. CLI flags override daemon config values.
+// Returns: tlsEnabled, ClientTLSConfig
+func getTLSSettings(c *cli.Context) (bool, rpc.ClientTLSConfig) {
+	var cfg rpc.ClientTLSConfig
+	tlsEnabled := clilib.GetBoolFromLineage(c, "rpc-tls")
+
+	// Try auto-detect from daemon YAML config
+	configPath, _ := clilib.GetEffectiveConfigPath(c)
+	if configPath != "" {
+		lowerPath := strings.ToLower(configPath)
+		if strings.HasSuffix(lowerPath, ".yml") || strings.HasSuffix(lowerPath, ".yaml") {
+			if yamlCfg, err := parseFixdYAML(configPath); err == nil {
+				// Auto-enable TLS if daemon has it enabled (unless CLI explicitly set --rpc-tls=false)
+				if yamlCfg.RPC.TLS.Enabled && !clilib.IsSetInLineage(c, "rpc-tls") {
+					tlsEnabled = true
+				}
+				// Use daemon's client TLS settings as defaults
+				cfg.CAFile = yamlCfg.RPC.TLS.Client.CAFile
+				cfg.PinSHA256 = yamlCfg.RPC.TLS.Client.PinSHA256
+			}
+		}
+	}
+
+	// CLI flags override daemon YAML values
+	if clilib.IsSetInLineage(c, "rpc-tls-ca") {
+		cfg.CAFile = clilib.GetStringFromLineage(c, "rpc-tls-ca")
+	}
+	if clilib.IsSetInLineage(c, "rpc-tls-pin") {
+		cfg.PinSHA256 = clilib.GetStringFromLineage(c, "rpc-tls-pin")
+	}
+
+	// Auto-enable TLS when trust flags are present but --rpc-tls was not
+	// explicitly set — prevents silent plaintext downgrade when user forgets
+	// --rpc-tls alongside --rpc-tls-ca/pin. Respects explicit --rpc-tls=false.
+	if !tlsEnabled && !clilib.IsSetInLineage(c, "rpc-tls") && (cfg.CAFile != "" || cfg.PinSHA256 != "") {
+		tlsEnabled = true
+	}
+
+	return tlsEnabled, cfg
+}
+
 // isValidHex checks if a string is valid hexadecimal using standard library
 func isValidHex(s string) bool {
 	if len(s) == 0 || len(s)%2 != 0 {
@@ -2096,9 +2253,12 @@ func executeRPC(c *cli.Context, method string, params []interface{}) error {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
+	// Resolve TLS settings: CLI flags override daemon YAML auto-detection
+	tlsEnabled, tlsCfg := getTLSSettings(c)
+
 	// Build URL
 	scheme := "http"
-	if clilib.GetBoolFromLineage(c, "rpc-tls") {
+	if tlsEnabled {
 		scheme = "https"
 	}
 	host, port := getRPCEndpoint(c)
@@ -2113,7 +2273,7 @@ func executeRPC(c *cli.Context, method string, params []interface{}) error {
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Get credentials with priority: CLI flags > --config > auto-discover (fixd.yml > fix.conf)
+	// Get credentials with priority: CLI flags > --config > auto-discover (fixd.yml > twins.conf)
 	username, password := getRPCCredentials(c)
 
 	// Add Basic Auth if credentials available
@@ -2121,45 +2281,21 @@ func executeRPC(c *cli.Context, method string, params []interface{}) error {
 		httpReq.SetBasicAuth(username, password)
 	}
 
-	// Configure HTTP client with timeout
+	// Configure HTTP client with timeout and TLS transport
 	timeout := clilib.GetDurationFromLineage(c, "rpc-timeout")
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
 
+	transport, err := rpcclient.NewTransport(tlsEnabled, tlsCfg, timeout)
+	if err != nil {
+		return fmt.Errorf("TLS transport setup failed: %w", err)
+	}
+
 	client := &http.Client{
-		Timeout: timeout,
+		Timeout:   timeout,
+		Transport: transport,
 	}
-
-	// Configure transport with timeouts
-	transport := &http.Transport{
-		MaxIdleConns:          10,
-		IdleConnTimeout:       30 * time.Second,
-		ResponseHeaderTimeout: timeout,
-	}
-
-	// Configure TLS if enabled
-	if clilib.GetBoolFromLineage(c, "rpc-tls") {
-		tlsConfig := &tls.Config{}
-
-		// Load custom certificate if provided
-		certPath := clilib.GetStringFromLineage(c, "rpc-cert")
-		if certPath != "" {
-			certPool := x509.NewCertPool()
-			certPEM, err := os.ReadFile(certPath)
-			if err != nil {
-				return fmt.Errorf("failed to read certificate: %w", err)
-			}
-			if !certPool.AppendCertsFromPEM(certPEM) {
-				return fmt.Errorf("failed to append certificate")
-			}
-			tlsConfig.RootCAs = certPool
-		}
-
-		transport.TLSClientConfig = tlsConfig
-	}
-
-	client.Transport = transport
 
 	// Execute request
 	httpResp, err := client.Do(httpReq)
