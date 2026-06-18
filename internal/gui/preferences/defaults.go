@@ -8,9 +8,10 @@ func NewDefaultSettings() *GUISettings {
 		MinimizeToTray:     false,
 		MinimizeOnClose:    false,
 		DisplayUnit:        DisplayUnitFIX, // Full FIX
-		Theme:              "dark",         // Dark theme (default)
-		Digits:             8,              // Full precision
-		Language:           "",             // System default
+		DateDisplayFormat:  DateFormatLocal,  // Show dates in user's local timezone
+		Theme:              "dark",           // Dark theme (default)
+		Digits:             8,                // Full precision
+		Language:           "",               // System default
 		HideTrayIcon:       false,
 		ShowMasternodesTab: true,
 		ThirdPartyTxUrls:   "",

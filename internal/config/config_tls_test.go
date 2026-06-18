@@ -41,15 +41,15 @@ rpc:
   allowPlaintextPublic: true
   tls:
     enabled: true
-    certFile: "/etc/twins/rpc.crt"
-    keyFile: "/etc/twins/rpc.key"
+    certFile: "/etc/fix/rpc.crt"
+    keyFile: "/etc/fix/rpc.key"
     expiryWarnDays: 14
-    reloadPassphraseFile: "/home/twins/.twins/rpcreload.hash"
+    reloadPassphraseFile: "/home/fix/.fix/rpcreload.hash"
     mtls:
       enabled: true
-      clientCAFile: "/etc/twins/client-ca.pem"
+      clientCAFile: "/etc/fix/client-ca.pem"
     client:
-      caFile: "/etc/twins/ca-bundle.pem"
+      caFile: "/etc/fix/ca-bundle.pem"
       pinSHA256: "abc123def456"
 `
 	tmpFile := filepath.Join(t.TempDir(), "fixd.yml")
@@ -68,26 +68,26 @@ rpc:
 	if !cfg.RPC.TLS.Enabled {
 		t.Error("TLS.Enabled should be true")
 	}
-	if cfg.RPC.TLS.CertFile != "/etc/twins/rpc.crt" {
-		t.Errorf("CertFile = %q, want /etc/twins/rpc.crt", cfg.RPC.TLS.CertFile)
+	if cfg.RPC.TLS.CertFile != "/etc/fix/rpc.crt" {
+		t.Errorf("CertFile = %q, want /etc/fix/rpc.crt", cfg.RPC.TLS.CertFile)
 	}
-	if cfg.RPC.TLS.KeyFile != "/etc/twins/rpc.key" {
-		t.Errorf("KeyFile = %q, want /etc/twins/rpc.key", cfg.RPC.TLS.KeyFile)
+	if cfg.RPC.TLS.KeyFile != "/etc/fix/rpc.key" {
+		t.Errorf("KeyFile = %q, want /etc/fix/rpc.key", cfg.RPC.TLS.KeyFile)
 	}
 	if cfg.RPC.TLS.ExpiryWarnDays != 14 {
 		t.Errorf("ExpiryWarnDays = %d, want 14", cfg.RPC.TLS.ExpiryWarnDays)
 	}
-	if cfg.RPC.TLS.ReloadPassphraseFile != "/home/twins/.twins/rpcreload.hash" {
-		t.Errorf("ReloadPassphraseFile = %q, want /home/twins/.twins/rpcreload.hash", cfg.RPC.TLS.ReloadPassphraseFile)
+	if cfg.RPC.TLS.ReloadPassphraseFile != "/home/fix/.fix/rpcreload.hash" {
+		t.Errorf("ReloadPassphraseFile = %q, want /home/fix/.fix/rpcreload.hash", cfg.RPC.TLS.ReloadPassphraseFile)
 	}
 	if !cfg.RPC.TLS.MTLS.Enabled {
 		t.Error("MTLS.Enabled should be true")
 	}
-	if cfg.RPC.TLS.MTLS.ClientCAFile != "/etc/twins/client-ca.pem" {
-		t.Errorf("MTLS.ClientCAFile = %q, want /etc/twins/client-ca.pem", cfg.RPC.TLS.MTLS.ClientCAFile)
+	if cfg.RPC.TLS.MTLS.ClientCAFile != "/etc/fix/client-ca.pem" {
+		t.Errorf("MTLS.ClientCAFile = %q, want /etc/fix/client-ca.pem", cfg.RPC.TLS.MTLS.ClientCAFile)
 	}
-	if cfg.RPC.TLS.Client.CAFile != "/etc/twins/ca-bundle.pem" {
-		t.Errorf("Client.CAFile = %q, want /etc/twins/ca-bundle.pem", cfg.RPC.TLS.Client.CAFile)
+	if cfg.RPC.TLS.Client.CAFile != "/etc/fix/ca-bundle.pem" {
+		t.Errorf("Client.CAFile = %q, want /etc/fix/ca-bundle.pem", cfg.RPC.TLS.Client.CAFile)
 	}
 	if cfg.RPC.TLS.Client.PinSHA256 != "abc123def456" {
 		t.Errorf("Client.PinSHA256 = %q, want abc123def456", cfg.RPC.TLS.Client.PinSHA256)
@@ -127,12 +127,12 @@ rpc:
 func TestRPCTLSConfigOverlayMerge(t *testing.T) {
 	cfg := DefaultConfig()
 
-	certFile := "/etc/twins/rpc.crt"
-	keyFile := "/etc/twins/rpc.key"
+	certFile := "/etc/fix/rpc.crt"
+	keyFile := "/etc/fix/rpc.key"
 	enabled := true
 	expiryDays := 7
 	mtlsEnabled := true
-	clientCA := "/etc/twins/client-ca.pem"
+	clientCA := "/etc/fix/client-ca.pem"
 	pinSHA := "sha256pin"
 
 	overlay := &ConfigOverlay{
@@ -190,7 +190,7 @@ func TestRPCTLSValidation_EnabledNoCert(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RPC.TLS.Enabled = true
 	cfg.RPC.TLS.CertFile = "" // missing
-	cfg.RPC.TLS.KeyFile = "/etc/twins/rpc.key"
+	cfg.RPC.TLS.KeyFile = "/etc/fix/rpc.key"
 
 	err := ValidateConfig(cfg)
 	if err == nil {
@@ -204,7 +204,7 @@ func TestRPCTLSValidation_EnabledNoCert(t *testing.T) {
 func TestRPCTLSValidation_EnabledNoKey(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RPC.TLS.Enabled = true
-	cfg.RPC.TLS.CertFile = "/etc/twins/rpc.crt"
+	cfg.RPC.TLS.CertFile = "/etc/fix/rpc.crt"
 	cfg.RPC.TLS.KeyFile = "" // missing
 
 	err := ValidateConfig(cfg)
@@ -219,8 +219,8 @@ func TestRPCTLSValidation_EnabledNoKey(t *testing.T) {
 func TestRPCTLSValidation_ExpiryWarnDaysZero(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RPC.TLS.Enabled = true
-	cfg.RPC.TLS.CertFile = "/etc/twins/rpc.crt"
-	cfg.RPC.TLS.KeyFile = "/etc/twins/rpc.key"
+	cfg.RPC.TLS.CertFile = "/etc/fix/rpc.crt"
+	cfg.RPC.TLS.KeyFile = "/etc/fix/rpc.key"
 	cfg.RPC.TLS.ExpiryWarnDays = 0
 
 	err := ValidateConfig(cfg)
@@ -235,8 +235,8 @@ func TestRPCTLSValidation_ExpiryWarnDaysZero(t *testing.T) {
 func TestRPCTLSValidation_MTLSNoClientCA(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RPC.TLS.Enabled = true
-	cfg.RPC.TLS.CertFile = "/etc/twins/rpc.crt"
-	cfg.RPC.TLS.KeyFile = "/etc/twins/rpc.key"
+	cfg.RPC.TLS.CertFile = "/etc/fix/rpc.crt"
+	cfg.RPC.TLS.KeyFile = "/etc/fix/rpc.key"
 	cfg.RPC.TLS.MTLS.Enabled = true
 	cfg.RPC.TLS.MTLS.ClientCAFile = "" // missing
 
@@ -266,11 +266,11 @@ func TestRPCTLSValidation_MTLSWithoutTLS(t *testing.T) {
 func TestRPCTLSValidation_ValidFullConfig(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.RPC.TLS.Enabled = true
-	cfg.RPC.TLS.CertFile = "/etc/twins/rpc.crt"
-	cfg.RPC.TLS.KeyFile = "/etc/twins/rpc.key"
+	cfg.RPC.TLS.CertFile = "/etc/fix/rpc.crt"
+	cfg.RPC.TLS.KeyFile = "/etc/fix/rpc.key"
 	cfg.RPC.TLS.ExpiryWarnDays = 14
 	cfg.RPC.TLS.MTLS.Enabled = true
-	cfg.RPC.TLS.MTLS.ClientCAFile = "/etc/twins/client-ca.pem"
+	cfg.RPC.TLS.MTLS.ClientCAFile = "/etc/fix/client-ca.pem"
 
 	err := ValidateConfig(cfg)
 	if err != nil {
@@ -302,10 +302,10 @@ func TestRPCTLSConfigManagerGetSet(t *testing.T) {
 	if err := cm.SetFromCLI("rpc.tls.enabled", true); err != nil {
 		t.Fatalf("SetFromCLI rpc.tls.enabled: %v", err)
 	}
-	if err := cm.SetFromCLI("rpc.tls.certFile", "/etc/twins/rpc.crt"); err != nil {
+	if err := cm.SetFromCLI("rpc.tls.certFile", "/etc/fix/rpc.crt"); err != nil {
 		t.Fatalf("SetFromCLI rpc.tls.certFile: %v", err)
 	}
-	if err := cm.SetFromCLI("rpc.tls.keyFile", "/etc/twins/rpc.key"); err != nil {
+	if err := cm.SetFromCLI("rpc.tls.keyFile", "/etc/fix/rpc.key"); err != nil {
 		t.Fatalf("SetFromCLI rpc.tls.keyFile: %v", err)
 	}
 	if err := cm.SetFromCLI("rpc.tls.expiryWarnDays", 7); err != nil {
@@ -319,7 +319,7 @@ func TestRPCTLSConfigManagerGetSet(t *testing.T) {
 	if !cm.GetBool("rpc.tls.enabled") {
 		t.Error("rpc.tls.enabled should be true after SetFromCLI")
 	}
-	if cm.GetString("rpc.tls.certFile") != "/etc/twins/rpc.crt" {
+	if cm.GetString("rpc.tls.certFile") != "/etc/fix/rpc.crt" {
 		t.Errorf("rpc.tls.certFile = %q after set", cm.GetString("rpc.tls.certFile"))
 	}
 	if cm.GetInt("rpc.tls.expiryWarnDays") != 7 {
@@ -426,7 +426,7 @@ func TestRPCTLSYAMLRoundTrip(t *testing.T) {
 	if err := cm.Set("rpc.tls.enabled", true); err != nil {
 		t.Fatalf("Set rpc.tls.enabled: %v", err)
 	}
-	if err := cm.Set("rpc.tls.certFile", "/etc/twins/rpc.crt"); err != nil {
+	if err := cm.Set("rpc.tls.certFile", "/etc/fix/rpc.crt"); err != nil {
 		t.Fatalf("Set rpc.tls.certFile: %v", err)
 	}
 	if err := cm.Set("rpc.tls.expiryWarnDays", 14); err != nil {
@@ -442,8 +442,8 @@ func TestRPCTLSYAMLRoundTrip(t *testing.T) {
 	if !cm2.GetBool("rpc.tls.enabled") {
 		t.Error("rpc.tls.enabled should be true after round-trip")
 	}
-	if cm2.GetString("rpc.tls.certFile") != "/etc/twins/rpc.crt" {
-		t.Errorf("rpc.tls.certFile = %q after round-trip, want /etc/twins/rpc.crt", cm2.GetString("rpc.tls.certFile"))
+	if cm2.GetString("rpc.tls.certFile") != "/etc/fix/rpc.crt" {
+		t.Errorf("rpc.tls.certFile = %q after round-trip, want /etc/fix/rpc.crt", cm2.GetString("rpc.tls.certFile"))
 	}
 	if cm2.GetInt("rpc.tls.expiryWarnDays") != 14 {
 		t.Errorf("rpc.tls.expiryWarnDays = %d after round-trip, want 14", cm2.GetInt("rpc.tls.expiryWarnDays"))

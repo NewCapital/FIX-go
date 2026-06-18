@@ -186,7 +186,7 @@ type PeerDetail struct {
 // MasternodeDetail contains per-masternode event statistics.
 type MasternodeDetail struct {
 	Outpoint   string `json:"outpoint"`
-	Address    string `json:"address"` // collateral payee address (TWINS base58)
+	Address    string `json:"address"` // collateral payee address (FIX base58)
 	Tier       string `json:"tier"`
 	EventCount int64  `json:"eventCount"`
 }

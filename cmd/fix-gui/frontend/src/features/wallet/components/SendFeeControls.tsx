@@ -105,7 +105,7 @@ export const SendFeeControls: React.FC<SendFeeControlsProps> = ({
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <span style={{ fontSize: '11px', color: '#888' }}>Transaction Fee:</span>
-        <span style={{ fontSize: '12px', color: '#ddd' }}>{feeRate.toFixed(8)} TWINS/kB</span>
+        <span style={{ fontSize: '12px', color: '#ddd' }}>{feeRate.toFixed(8)} FIX/kB</span>
         <div style={{ marginLeft: 'auto' }}>
           <PillButton
             onClick={onChooseCustomFee ?? (() => {})}

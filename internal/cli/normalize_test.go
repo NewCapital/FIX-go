@@ -223,58 +223,58 @@ func TestReorderSubcommandArgs(t *testing.T) {
 	}{
 		{
 			name:     "flag after positional arg (=form)",
-			args:     []string{"twins-cli", "rpc-cert-fingerprint", "cert.crt", "--datadir=/path"},
-			expected: []string{"twins-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
+			args:     []string{"fix-cli", "rpc-cert-fingerprint", "cert.crt", "--datadir=/path"},
+			expected: []string{"fix-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
 		},
 		{
 			name:     "flag after positional arg (space form)",
-			args:     []string{"twins-cli", "getblock", "abc123", "--rpc-host", "1.2.3.4"},
-			expected: []string{"twins-cli", "getblock", "--rpc-host", "1.2.3.4", "abc123"},
+			args:     []string{"fix-cli", "getblock", "abc123", "--rpc-host", "1.2.3.4"},
+			expected: []string{"fix-cli", "getblock", "--rpc-host", "1.2.3.4", "abc123"},
 		},
 		{
 			name:     "flag before positional arg (already correct)",
-			args:     []string{"twins-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
-			expected: []string{"twins-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
+			args:     []string{"fix-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
+			expected: []string{"fix-cli", "rpc-cert-fingerprint", "--datadir=/path", "cert.crt"},
 		},
 		{
 			name:     "flag before command (untouched)",
-			args:     []string{"twins-cli", "--datadir=/path", "rpc-cert-fingerprint", "cert.crt"},
-			expected: []string{"twins-cli", "--datadir=/path", "rpc-cert-fingerprint", "cert.crt"},
+			args:     []string{"fix-cli", "--datadir=/path", "rpc-cert-fingerprint", "cert.crt"},
+			expected: []string{"fix-cli", "--datadir=/path", "rpc-cert-fingerprint", "cert.crt"},
 		},
 		{
 			name:     "multiple flags mixed with args",
-			args:     []string{"twins-cli", "sendtoaddress", "addr1", "100", "--rpc-host", "1.2.3.4", "--rpc-tls", "--datadir=/path"},
-			expected: []string{"twins-cli", "sendtoaddress", "--rpc-host", "1.2.3.4", "--rpc-tls", "--datadir=/path", "addr1", "100"},
+			args:     []string{"fix-cli", "sendtoaddress", "addr1", "100", "--rpc-host", "1.2.3.4", "--rpc-tls", "--datadir=/path"},
+			expected: []string{"fix-cli", "sendtoaddress", "--rpc-host", "1.2.3.4", "--rpc-tls", "--datadir=/path", "addr1", "100"},
 		},
 		{
 			name:     "bool flag after positional",
-			args:     []string{"twins-cli", "getinfo", "--rpc-tls"},
-			expected: []string{"twins-cli", "getinfo", "--rpc-tls"},
+			args:     []string{"fix-cli", "getinfo", "--rpc-tls"},
+			expected: []string{"fix-cli", "getinfo", "--rpc-tls"},
 		},
 		{
 			name:     "alias flag after positional",
-			args:     []string{"twins-cli", "getblock", "abc123", "-d", "/path"},
-			expected: []string{"twins-cli", "getblock", "-d", "/path", "abc123"},
+			args:     []string{"fix-cli", "getblock", "abc123", "-d", "/path"},
+			expected: []string{"fix-cli", "getblock", "-d", "/path", "abc123"},
 		},
 		{
 			name:     "double dash terminates reordering",
-			args:     []string{"twins-cli", "cmd", "arg1", "--", "--datadir=/path"},
-			expected: []string{"twins-cli", "cmd", "arg1", "--", "--datadir=/path"},
+			args:     []string{"fix-cli", "cmd", "arg1", "--", "--datadir=/path"},
+			expected: []string{"fix-cli", "cmd", "arg1", "--", "--datadir=/path"},
 		},
 		{
 			name:     "unrecognized flag treated as positional",
-			args:     []string{"twins-cli", "cmd", "arg1", "--unknown=val"},
-			expected: []string{"twins-cli", "cmd", "arg1", "--unknown=val"},
+			args:     []string{"fix-cli", "cmd", "arg1", "--unknown=val"},
+			expected: []string{"fix-cli", "cmd", "arg1", "--unknown=val"},
 		},
 		{
 			name:     "no subcommand (just program)",
-			args:     []string{"twins-cli"},
-			expected: []string{"twins-cli"},
+			args:     []string{"fix-cli"},
+			expected: []string{"fix-cli"},
 		},
 		{
 			name:     "program and subcommand only",
-			args:     []string{"twins-cli", "getinfo"},
-			expected: []string{"twins-cli", "getinfo"},
+			args:     []string{"fix-cli", "getinfo"},
+			expected: []string{"fix-cli", "getinfo"},
 		},
 		{
 			name:     "empty args",
@@ -283,13 +283,13 @@ func TestReorderSubcommandArgs(t *testing.T) {
 		},
 		{
 			name:     "flags interleaved with multiple positional args",
-			args:     []string{"twins-cli", "cmd", "pos1", "--datadir=/a", "pos2", "--rpc-port", "9999", "pos3"},
-			expected: []string{"twins-cli", "cmd", "--datadir=/a", "--rpc-port", "9999", "pos1", "pos2", "pos3"},
+			args:     []string{"fix-cli", "cmd", "pos1", "--datadir=/a", "pos2", "--rpc-port", "9999", "pos3"},
+			expected: []string{"fix-cli", "cmd", "--datadir=/a", "--rpc-port", "9999", "pos1", "pos2", "pos3"},
 		},
 		{
 			name:     "app flag before subcommand with space value",
-			args:     []string{"twins-cli", "--rpc-host", "1.2.3.4", "getblock", "abc123", "--datadir=/path"},
-			expected: []string{"twins-cli", "--rpc-host", "1.2.3.4", "getblock", "--datadir=/path", "abc123"},
+			args:     []string{"fix-cli", "--rpc-host", "1.2.3.4", "getblock", "abc123", "--datadir=/path"},
+			expected: []string{"fix-cli", "--rpc-host", "1.2.3.4", "getblock", "--datadir=/path", "abc123"},
 		},
 	}
 

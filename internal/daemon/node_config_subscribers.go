@@ -238,19 +238,19 @@ func (n *Node) WireConfigSubscribers() {
 		n.logger.WithField("enabled", enabled).Info("Auto-combine updated via config change")
 	})
 
-	// wallet.autoCombineTarget — update auto-combine target (config stores TWINS, wallet uses satoshis)
+	// wallet.autoCombineTarget — update auto-combine target (config stores FIX, wallet uses satoshis)
 	n.ConfigManager.Subscribe("wallet.autoCombineTarget", func(_ string, _, newValue interface{}) {
-		targetTWINS, ok := newValue.(int64)
+		targetFIX, ok := newValue.(int64)
 		if !ok {
 			return
 		}
 		if n.Wallet == nil {
 			return
 		}
-		targetSatoshis := targetTWINS * 100_000_000
+		targetSatoshis := targetFIX * 100_000_000
 		enabled, _, cooldown := n.Wallet.GetAutoCombineConfig()
 		n.Wallet.SetAutoCombineConfig(enabled, targetSatoshis, cooldown)
-		n.logger.WithField("target_twins", targetTWINS).Info("Auto-combine target updated via config change")
+		n.logger.WithField("target_fix", targetFIX).Info("Auto-combine target updated via config change")
 	})
 
 	// wallet.autoCombineCooldown — update auto-combine cooldown
@@ -267,20 +267,20 @@ func (n *Node) WireConfigSubscribers() {
 		n.logger.WithField("cooldown", cooldown).Info("Auto-combine cooldown updated via config change")
 	})
 
-	// staking.stakeSplitThreshold — update stake split threshold (config stores TWINS, wallet uses satoshis)
+	// staking.stakeSplitThreshold — update stake split threshold (config stores FIX, wallet uses satoshis)
 	n.ConfigManager.Subscribe("staking.stakeSplitThreshold", func(_ string, _, newValue interface{}) {
-		thresholdTWINS, ok := newValue.(int64)
+		thresholdFIX, ok := newValue.(int64)
 		if !ok {
 			return
 		}
 		if n.Wallet == nil {
 			return
 		}
-		thresholdSatoshis := thresholdTWINS * 100_000_000
+		thresholdSatoshis := thresholdFIX * 100_000_000
 		if err := n.Wallet.SetStakeSplitThreshold(thresholdSatoshis); err != nil {
 			n.logger.WithError(err).Warn("Failed to update stake split threshold via config change")
 		} else {
-			n.logger.WithField("threshold_twins", thresholdTWINS).Info("Stake split threshold updated via config change")
+			n.logger.WithField("threshold_fix", thresholdFIX).Info("Stake split threshold updated via config change")
 		}
 	})
 

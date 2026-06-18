@@ -233,7 +233,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
     ccParts.push(
       `${coinControlSelectedCount} coin${coinControlSelectedCount !== 1 ? 's' : ''} manually selected${
         coinControlSelectedAmount !== undefined
-          ? ` (${formatAmount(coinControlSelectedAmount)} ${t('common:units.twins')})`
+          ? ` (${formatAmount(coinControlSelectedAmount)} ${t('common:units.fix')})`
           : ''
       }`,
     );
@@ -244,7 +244,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   const composedCoinControlMessage = ccParts.join(' — ');
 
   const splitMessage = hasSplitUTXO
-    ? `Split UTXO Active — ${splitCount} outputs @ ${formatAmount(splitOutputSize || 0)} ${t('common:units.twins')} each`
+    ? `Split UTXO Active — ${splitCount} outputs @ ${formatAmount(splitOutputSize || 0)} ${t('common:units.fix')} each`
     : '';
 
   const isConfirmDisabled = dialogState === 'sending' || (isWalletEncrypted && !passphrase);
@@ -326,13 +326,13 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                   <div style={rowStyle}>
                     <span style={labelStyle}>{t('send.confirmation.totalAmount')}:</span>
                     <span style={valueStyle}>
-                      {formatAmount(total)} {t('common:units.twins')}
+                      {formatAmount(total)} {t('common:units.fix')}
                     </span>
                   </div>
                   <div style={rowStyle}>
                     <span style={labelStyle}>{t('send.confirmation.fee')}:</span>
                     <span style={valueStyle}>
-                      {formatAmount(fee)} {t('common:units.twins')}
+                      {formatAmount(fee)} {t('common:units.fix')}
                     </span>
                   </div>
                 </div>
@@ -404,7 +404,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                           {truncateAddress(recipient.address)}
                         </span>
                         <span style={{ fontSize: '12px', fontWeight: 600, color: '#ddd' }}>
-                          {formatAmount(recipient.amount)} {t('common:units.twins')}
+                          {formatAmount(recipient.amount)} {t('common:units.fix')}
                         </span>
                       </div>
                       {index < recipients.length - 1 && (
@@ -420,7 +420,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                   <div style={rowStyle}>
                     <span style={labelStyle}>{t('send.confirmation.transactionFee')}:</span>
                     <span style={valueStyle}>
-                      {formatAmount(fee)} {t('common:units.twins')}
+                      {formatAmount(fee)} {t('common:units.fix')}
                     </span>
                   </div>
                   <div style={{ borderTop: '1px solid #3a3a3a' }} />
@@ -429,7 +429,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                       {t('send.confirmation.grandTotal')}:
                     </span>
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#27ae60' }}>
-                      {formatAmount(total + fee)} {t('common:units.twins')}
+                      {formatAmount(total + fee)} {t('common:units.fix')}
                     </span>
                   </div>
                 </div>

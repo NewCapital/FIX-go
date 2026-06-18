@@ -792,6 +792,22 @@ func (a *App) initializeFullDaemon() {
 		if node.PaymentTracker != nil {
 			goCoreClient.SetPaymentTracker(node.PaymentTracker)
 		}
+		// Difficulty is computed inline from the cached tip block's compact
+		// target inside GoCoreClient.GetBlockchainInfo — no wiring needed.
+		goCoreClient.SetDataDir(a.dataDir)
+		// Money supply is read per-status-poll via Blockchain.GetMoneySupply(tipHeight).
+		if node.Blockchain != nil {
+			goCoreClient.SetBlockchain(node.Blockchain)
+		}
+		// Active network name (mainnet/testnet/regtest) for network-aware address
+		// encoding (recipient extraction on sends). Empty string falls back to
+		// mainnet at the encoding helpers.
+		if node.ChainParams != nil {
+			goCoreClient.SetNetwork(node.ChainParams.Name)
+			// Full chain parameter snapshot for layout-aware dev fund parsing in
+			// blockToDetail (matches coinstake outputs against chainParams.DevAddress).
+			goCoreClient.SetChainParams(node.ChainParams)
+		}
 		// Set initial staking enabled state from ConfigManager
 		// Use local cm (already set under componentsMu lock above)
 		goCoreClient.SetStakingEnabled(cm.GetBool("staking.enabled"))
@@ -809,6 +825,24 @@ func (a *App) initializeFullDaemon() {
 					"enabled": enabled,
 				})
 			}
+		})
+
+		// Subscribe to masternode.debug changes so the frontend can hide/show the
+		// Debug tab live. The daemon-side subscriber in node_config_subscribers.go
+		// runs first (it was registered by WireConfigSubscribers during InitWallet),
+		// so by the time this fires the collector has already been started or stopped.
+		// Emit the EFFECTIVE state (collector pointer non-nil), not the raw config
+		// value: if collector startup failed (e.g. file permission error opening
+		// mn-debug.jsonl) the daemon-side subscriber leaves DebugCollector nil and
+		// logs a warning. Reporting the config value here would show the user a
+		// Debug tab that has no working backend.
+		nodeRef := a.node
+		cm.Subscribe("masternode.debug", func(_ string, _, newValue interface{}) {
+			if _, ok := newValue.(bool); !ok {
+				return
+			}
+			active := nodeRef != nil && nodeRef.DebugCollector.Load() != nil
+			runtime.EventsEmit(appCtx, "masternode:debug-changed", active)
 		})
 	}
 
@@ -1497,19 +1531,23 @@ func (a *App) GetRPCStatus() map[string]interface{} {
 			"running": false,
 			"host":    "",
 			"port":    0,
+			"tls":     false,
 		}
 	}
 
 	host := "127.0.0.1"
 	port := defaultRPCPort
+	var tlsEnabled bool
 	if cm := a.getConfigManager(); cm != nil {
 		host = cm.GetString("rpc.host")
 		port = cm.GetInt("rpc.port")
+		tlsEnabled = cm.GetBool("rpc.tls.enabled")
 	}
 	return map[string]interface{}{
 		"running": true,
 		"host":    host,
 		"port":    port,
+		"tls":     tlsEnabled,
 	}
 }
 
@@ -1524,10 +1562,11 @@ func (a *App) GetStakingStatus() map[string]interface{} {
 	// Default response when components not ready
 	if components == nil || components.Consensus == nil {
 		return map[string]interface{}{
-			"staking":        false,
-			"enabled":        false,
-			"walletUnlocked": false,
-			"initialized":    false,
+			"staking":         false,
+			"enabled":         false,
+			"walletUnlocked":  false,
+			"initialized":     false,
+			"multisendActive": false,
 		}
 	}
 
@@ -1546,11 +1585,21 @@ func (a *App) GetStakingStatus() map[string]interface{} {
 		walletUnlocked = !w.IsLocked()
 	}
 
+	// Check MultiSend status (staking or masternode auto-send)
+	multisendActive := false
+	if w != nil {
+		stakeEnabled, masternodeEnabled, _, err := w.GetMultiSendSettings()
+		if err == nil {
+			multisendActive = stakeEnabled || masternodeEnabled
+		}
+	}
+
 	return map[string]interface{}{
-		"staking":        isStaking,
-		"enabled":        stakingEnabled,
-		"walletUnlocked": walletUnlocked,
-		"initialized":    true,
+		"staking":         isStaking,
+		"enabled":         stakingEnabled,
+		"walletUnlocked":  walletUnlocked,
+		"initialized":     true,
+		"multisendActive": multisendActive,
 	}
 }
 

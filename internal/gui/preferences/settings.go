@@ -7,6 +7,7 @@ type GUISettings struct {
 	MinimizeToTray     bool   `json:"fMinimizeToTray"`
 	MinimizeOnClose    bool   `json:"fMinimizeOnClose"`
 	DisplayUnit        int    `json:"nDisplayUnit"`        // 0=FIX, 1=mFIX, 2=uFIX
+	DateDisplayFormat  int    `json:"nDateDisplayFormat"`  // 0=local, 1=UTC, 2=age (relative)
 	Theme              string `json:"theme"`               // "light", "dark", "system"
 	Digits             int    `json:"digits"`              // Decimal places to display (default: 8)
 	Language           string `json:"language"`            // Language code (e.g., "en", "de", "")
@@ -70,6 +71,13 @@ const (
 	DisplayUnitFIX  = 0 // Full FIX (8 decimals)
 	DisplayUnitMFIX = 1 // Milli-FIX (5 decimals)
 	DisplayUnitUFIX = 2 // Micro-FIX (2 decimals)
+)
+
+// DateDisplayFormat constants controlling how dates are rendered in tables and detail views
+const (
+	DateFormatLocal = 0 // Render absolute date in user's local timezone
+	DateFormatUTC   = 1 // Render absolute date in UTC
+	DateFormatAge   = 2 // Render relative age (e.g. "5m ago"); column headers become "Age"
 )
 
 // CoinControlMode constants

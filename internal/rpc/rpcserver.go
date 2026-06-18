@@ -369,7 +369,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 	if s.config.Username != "" && s.config.Password != "" {
 		username, password, ok := r.BasicAuth()
 		if !ok {
-			w.Header().Set("WWW-Authenticate", `Basic realm="TWINS RPC"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="FIX RPC"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -379,7 +379,7 @@ func (s *Server) handleRequest(w http.ResponseWriter, r *http.Request) {
 		passwordMatch := subtle.ConstantTimeCompare([]byte(password), []byte(s.config.Password)) == 1
 
 		if !usernameMatch || !passwordMatch {
-			w.Header().Set("WWW-Authenticate", `Basic realm="TWINS RPC"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="FIX RPC"`)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

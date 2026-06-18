@@ -17,7 +17,7 @@ import (
 // base64(sha256(cert.RawSubjectPublicKeyInfo)).
 //
 // This is the single source of truth shared between the VerifyConnection
-// callback and the twins-cli rpc-cert-fingerprint helper.
+// callback and the fix-cli rpc-cert-fingerprint helper.
 func SPKIFingerprint(cert *x509.Certificate) string {
 	sum := sha256.Sum256(cert.RawSubjectPublicKeyInfo)
 	return base64.StdEncoding.EncodeToString(sum[:])
@@ -96,7 +96,7 @@ func NewTransport(tlsEnabled bool, cfg rpc.ClientTLSConfig, timeout time.Duratio
 			// Check SPKI pin
 			actual := SPKIFingerprint(leaf)
 			if actual != expectedPin {
-				return fmt.Errorf("SPKI hash mismatch — use twins-cli rpc-cert-fingerprint to compute the correct value")
+				return fmt.Errorf("SPKI hash mismatch — use fix-cli rpc-cert-fingerprint to compute the correct value")
 			}
 
 			return nil

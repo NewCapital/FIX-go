@@ -134,6 +134,10 @@ export function GetAddressTransactions(arg1, arg2, arg3) {
   return window['go']['main']['App']['GetAddressTransactions'](arg1, arg2, arg3);
 }
 
+export function GetAddressUTXOs(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetAddressUTXOs'](arg1, arg2, arg3);
+}
+
 export function GetAllSettingsMetadata() {
   return window['go']['main']['App']['GetAllSettingsMetadata']();
 }
@@ -164,6 +168,10 @@ export function GetContacts() {
 
 export function GetCurrentReceivingAddress() {
   return window['go']['main']['App']['GetCurrentReceivingAddress']();
+}
+
+export function GetDaemonConfigBool(arg1) {
+  return window['go']['main']['App']['GetDaemonConfigBool'](arg1);
 }
 
 export function GetDaemonConfigCategories() {
@@ -202,8 +210,16 @@ export function GetDefaultDataDirectory() {
   return window['go']['main']['App']['GetDefaultDataDirectory']();
 }
 
-export function GetExplorerAddress(arg1, arg2) {
-  return window['go']['main']['App']['GetExplorerAddress'](arg1, arg2);
+export function GetExplorerAddressBalance(arg1) {
+  return window['go']['main']['App']['GetExplorerAddressBalance'](arg1);
+}
+
+export function GetExplorerAddressBasic(arg1) {
+  return window['go']['main']['App']['GetExplorerAddressBasic'](arg1);
+}
+
+export function GetExplorerAddressStats(arg1) {
+  return window['go']['main']['App']['GetExplorerAddressStats'](arg1);
 }
 
 export function GetExplorerBlock(arg1) {
@@ -264,6 +280,10 @@ export function GetP2PStatus() {
 
 export function GetPaymentRequests() {
   return window['go']['main']['App']['GetPaymentRequests']();
+}
+
+export function GetPaymentRequestsPage(arg1) {
+  return window['go']['main']['App']['GetPaymentRequestsPage'](arg1);
 }
 
 export function GetPaymentStats(arg1) {

@@ -16,6 +16,28 @@ type AddressTransaction struct {
 	TxIndex uint32 // Index of transaction within the block
 }
 
+// AddressAggregates carries the per-address summary values needed by the
+// Address Details "Activity" card (Total Received, Total Sent, TxCount,
+// FirstSeen, LastSeen). All values are derived from a single iterator pass
+// over the 0x05 address-history index without loading any transaction data.
+//
+// TotalReceivedSat sums Value across all 0x05 entries with IsInput==false.
+// TotalSentSat sums Value across all 0x05 entries with IsInput==true.
+// TxCount is the number of UNIQUE txhashes referenced by the index entries
+// (one tx with N outputs + M inputs to the address contributes once, not N+M
+// times). MinHeight / MaxHeight bracket the height range of those entries;
+// HasHeights is false when the address has zero history entries (in which
+// case the height fields are zero-valued and callers should treat them as
+// "unknown").
+type AddressAggregates struct {
+	TotalReceivedSat uint64
+	TotalSentSat     uint64
+	TxCount          int
+	MinHeight        uint32
+	MaxHeight        uint32
+	HasHeights       bool
+}
+
 // TransactionData represents transaction data with block location metadata
 type TransactionData struct {
 	BlockHash types.Hash
@@ -68,10 +90,20 @@ type Storage interface {
 	// Returns (isSpent, spendingTxHash, error) - checks if UTXO is already spent
 	ValidateUTXOSpend(outpoint types.Outpoint) (isSpent bool, spendingTxHash types.Hash, err error)
 
-	// Address index operations (for wallet rescan and transaction lookups)
-	// addressBinary is the decoded address (netID + hash160 = 21 bytes)
-	IndexTransactionByAddress(addressBinary []byte, txHash types.Hash, height uint32, txIndex uint32, value int64, isInput bool, blockHash types.Hash) error
+	// Address index operations (for wallet rescan and transaction lookups).
+	// addressBinary is the decoded address (netID + hash160 = 21 bytes).
+	// ioIdx is the input or output index WITHIN the transaction (not the tx
+	// position in the block). Combined with isInput, it encodes the key
+	// index field via EncodeAddressHistoryIndex so every input/output gets
+	// a unique 0x05 key. ioIdx must be <= 0x7fff (defensive bound).
+	IndexTransactionByAddress(addressBinary []byte, txHash types.Hash, height uint32, ioIdx uint32, value int64, isInput bool, blockHash types.Hash) error
 	GetTransactionsByAddress(addressBinary []byte) ([]AddressTransaction, error)
+	// GetAddressAggregates iterates the 0x05 address-history index once and
+	// returns the per-address summary (received, sent, txCount, min/maxHeight)
+	// computed from the index VALUES (not the transactions themselves). Used
+	// by the GUI Address Details "Activity" card to avoid the prior O(N+N×I)
+	// per-transaction load. addressBinary is netID + hash160 = 21 bytes.
+	GetAddressAggregates(addressBinary []byte) (AddressAggregates, error)
 	DeleteAddressIndex(addressBinary []byte, txHash types.Hash) error
 
 	// Chain state operations
@@ -175,8 +207,10 @@ type Batch interface {
 	DeleteStakeModifier(blockHash types.Hash) error
 	StoreBlockPoSMetadata(blockHash types.Hash, checksum uint32, proofHash types.Hash) error
 	StoreMoneySupply(height uint32, supply int64) error
-	// addressBinary is the decoded address (netID + hash160 = 21 bytes)
-	IndexTransactionByAddress(addressBinary []byte, txHash types.Hash, height uint32, txIndex uint32, value int64, isInput bool, blockHash types.Hash) error
+	// addressBinary is the decoded address (netID + hash160 = 21 bytes).
+	// ioIdx is the input or output index WITHIN the transaction; see the
+	// Batch.IndexTransactionByAddress doc above for the full encoding contract.
+	IndexTransactionByAddress(addressBinary []byte, txHash types.Hash, height uint32, ioIdx uint32, value int64, isInput bool, blockHash types.Hash) error
 
 	// UTXO spending operations (mark-as-spent model)
 	// MarkUTXOSpent marks a UTXO as spent without deleting it

@@ -285,7 +285,7 @@ func DiscoverConfigFile() string {
 
 // GetEffectiveConfigPath returns the config file path to use
 // If --config explicitly set, returns that path and explicit=true
-// Otherwise checks --datadir for fixd.yml, then falls back to ~/.twins/ auto-discovery
+// Otherwise checks --datadir for fixd.yml, then falls back to ~/.fix/ auto-discovery
 func GetEffectiveConfigPath(c *cli.Context) (path string, explicit bool) {
 	if ConfigWasExplicitlySet(c) {
 		return GetConfigPath(c), true

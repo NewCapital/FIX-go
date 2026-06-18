@@ -32,11 +32,11 @@ export const CustomFeeDialog: React.FC<CustomFeeDialogProps> = ({
       return;
     }
     if (value < 0.00001) {
-      setError('Fee rate too low (minimum: 0.00001 TWINS/kB)');
+      setError('Fee rate too low (minimum: 0.00001 FIX/kB)');
       return;
     }
     if (value > 1) {
-      setError('Fee rate too high (maximum: 1 TWINS/kB)');
+      setError('Fee rate too high (maximum: 1 FIX/kB)');
       return;
     }
     onConfirm(value);
@@ -79,7 +79,7 @@ export const CustomFeeDialog: React.FC<CustomFeeDialogProps> = ({
 
         <div style={{ marginBottom: '12px' }}>
           <label style={{ fontSize: '11px', color: '#888', display: 'block', marginBottom: '4px' }}>
-            Fee Rate (TWINS/kB):
+            Fee Rate (FIX/kB):
           </label>
           <input
             type="text"
@@ -108,7 +108,7 @@ export const CustomFeeDialog: React.FC<CustomFeeDialogProps> = ({
         </div>
 
         <div style={{ fontSize: '11px', color: '#888', marginBottom: '16px' }}>
-          Default: 0.0001 TWINS/kB (normal) to 0.001 TWINS/kB (fast)
+          Default: 0.0001 FIX/kB (normal) to 0.001 FIX/kB (fast)
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>

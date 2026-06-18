@@ -42,7 +42,7 @@ const cardStyle: React.CSSProperties = {
   padding: CARD_PADDING_STANDARD,
 };
 
-// TWINS address validation regex
+// FIX address validation regex
 // MainNet: W (P2PKH, prefix 0x49) and a (P2SH, prefix 0x53)
 // TestNet: m or n (P2PKH, prefix 0x6F)
 const FIX_ADDRESS_REGEX = /^[Wamn][a-km-zA-HJ-NP-Z1-9]{33}$/;
@@ -66,7 +66,7 @@ const recipientSchema = z.object({
     .refine((val) => {
       const num = parseAmount(val);
       return num >= DUST_THRESHOLD;
-    }, `Amount must be at least ${DUST_THRESHOLD} TWINS to avoid dust`),
+    }, `Amount must be at least ${DUST_THRESHOLD} FIX to avoid dust`),
   label: z.string().optional(),
 });
 
@@ -103,7 +103,7 @@ export const Send: React.FC = () => {
   const syncCoinControlEnabled = useStore((s) => s.syncCoinControlEnabled);
 
   // Fee rate state (matches old GUI behavior)
-  const [feeRate, setFeeRate] = useState(0.0001); // Default fee rate in TWINS/kB
+  const [feeRate, setFeeRate] = useState(0.0001); // Default fee rate in FIX/kB
   const [sliderPosition, setSliderPosition] = useState(0); // 0-100 slider position
   const [estimateFeeAvailable, setEstimateFeeAvailable] = useState(true); // EstimateFee API availability
   const [showCustomFeeDialog, setShowCustomFeeDialog] = useState(false); // Custom fee dialog visibility
@@ -371,7 +371,7 @@ export const Send: React.FC = () => {
         // User is trying to spend locked collateral
         setFormError(
           `Insufficient available balance. You need ${formatAmountDisplay(needed)} but only have ${formatAmountDisplay(available)} available. ` +
-          `${formatAmountDisplay(locked)} TWINS is locked as masternode collateral and cannot be spent.`
+          `${formatAmountDisplay(locked)} FIX is locked as masternode collateral and cannot be spent.`
         );
       } else {
         setFormError(`Insufficient balance. You need ${formatAmountDisplay(needed)} but only have ${formatAmountDisplay(available)} available.`);
@@ -465,7 +465,7 @@ export const Send: React.FC = () => {
           ? Array.from(coinControl.selectedCoins)
           : [],
         splitCount: hasSplitUTXO ? parseInt(watchedSplitOutputs) : 0,
-        feeRate: feeRate, // User-selected fee rate in TWINS/kB
+        feeRate: feeRate, // User-selected fee rate in FIX/kB
       };
 
       // Use SendTransactionMulti to create a single transaction with all recipients

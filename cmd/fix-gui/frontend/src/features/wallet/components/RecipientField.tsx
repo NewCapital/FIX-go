@@ -255,7 +255,7 @@ const RecipientFieldComponent: React.FC<RecipientFieldProps> = ({
             </button>
           )}
           <span style={{ fontSize: '11px', color: '#888', minWidth: '45px', flexShrink: 0 }}>
-            {t('common:units.twins')}
+            {t('common:units.fix')}
           </span>
         </div>
       </div>

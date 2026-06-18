@@ -246,7 +246,7 @@ func CommonWalletFlags() []cli.Flag {
 		&cli.Int64Flag{
 			Name:    "maxtxfee",
 			Value:   100000000,
-			Usage:   "Maximum total transaction fee (in satoshis, default 1 TWINS)",
+			Usage:   "Maximum total transaction fee (in satoshis, default 1 FIX)",
 			EnvVars: []string{"FIX_MAXTXFEE"},
 		},
 		&cli.IntFlag{

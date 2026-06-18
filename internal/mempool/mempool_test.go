@@ -175,7 +175,7 @@ func seedUTXOForTx(t testing.TB, store storage.Storage, tx *types.Transaction) {
 	}
 	for _, in := range tx.Inputs {
 		err := store.StoreUTXO(in.PreviousOutput, &types.TxOutput{
-			Value:        totalOutput + 10000, // output + 0.0001 TWINS fee
+			Value:        totalOutput + 10000, // output + 0.0001 FIX fee
 			ScriptPubKey: scriptPubKey,
 		}, 1, false)
 		require.NoError(t, err)

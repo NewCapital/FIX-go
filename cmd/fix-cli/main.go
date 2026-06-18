@@ -1700,7 +1700,7 @@ func main() {
 		},
 
 		// NOTE: Budget/Governance commands removed
-		// The budget system (inherited from PIVX/Dash) is permanently disabled in TWINS
+		// The budget system (inherited from PIVX/Dash) is permanently disabled in FIX
 		// via SPORK_13_ENABLE_SUPERBLOCKS set to year 2099. Commands removed:
 		// - preparebudget, submitbudget, mnbudgetvote, mnbudget
 		// - mnbudgetrawvote, mnfinalbudget
@@ -2087,7 +2087,7 @@ func parseCookieFile(cookiePath string) (username, password string, err error) {
 
 // getRPCCredentials gets RPC credentials with priority:
 // 1. CLI flags (--rpc-user, --rpc-password)
-// 2. Config file (fixd.yml or twins.conf)
+// 2. Config file (fixd.yml or fix.conf)
 // 3. Cookie authentication (.cookie file in datadir)
 func getRPCCredentials(c *cli.Context) (username, password string) {
 	// 1. Check CLI flags first (highest priority)
@@ -2137,7 +2137,7 @@ func getRPCCredentials(c *cli.Context) (username, password string) {
 
 // getRPCEndpoint returns RPC host and port with priority:
 // 1. CLI flags (if explicitly set)
-// 2. Config file (fixd.yml or twins.conf)
+// 2. Config file (fixd.yml or fix.conf)
 // 3. Default values (127.0.0.1:37818)
 func getRPCEndpoint(c *cli.Context) (host string, port int) {
 	// Default values
@@ -2273,7 +2273,7 @@ func executeRPC(c *cli.Context, method string, params []interface{}) error {
 	// Set headers
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Get credentials with priority: CLI flags > --config > auto-discover (fixd.yml > twins.conf)
+	// Get credentials with priority: CLI flags > --config > auto-discover (fixd.yml > fix.conf)
 	username, password := getRPCCredentials(c)
 
 	// Add Basic Auth if credentials available

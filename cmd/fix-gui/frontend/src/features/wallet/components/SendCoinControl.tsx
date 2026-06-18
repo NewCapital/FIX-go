@@ -159,7 +159,7 @@ export const SendCoinControl: React.FC<SendCoinControlProps> = ({
             <input
               type="text"
               {...register('changeAddress')}
-              placeholder="Enter a TWINS address (e.g. WJmGqDGiE5sGJxHwvW4sSodfnGMgQ9XFb)"
+              placeholder="Enter a FIX address"
               disabled={!watchedCustomChangeAddress}
               style={{
                 ...inputStyle,
@@ -226,7 +226,7 @@ export const SendCoinControl: React.FC<SendCoinControlProps> = ({
               >
                 <span style={watchedSplitUTXO ? fieldLabelActiveStyle : fieldLabelStyle}>UTXO Size:</span>
                 <span style={watchedSplitUTXO ? fieldLabelActiveStyle : fieldLabelStyle}>
-                  {watchedSplitUTXO ? calculateUTXOSize() : '0'} TWINS
+                  {watchedSplitUTXO ? calculateUTXOSize() : '0'} FIX
                 </span>
               </div>
             </div>

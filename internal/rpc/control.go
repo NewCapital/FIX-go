@@ -118,9 +118,9 @@ var commandHelpTexts = map[string]string{
 			"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"setloglevel\", \"params\": [\"debug\"] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
 
 		"stop": "stop\n\n" +
-			"Stop TWINS server.\n\n" +
+			"Stop FIX server.\n\n" +
 			"Result:\n" +
-			"\"TWINS server stopping\"    (string) Confirmation message\n\n" +
+			"\"FIX server stopping\"    (string) Confirmation message\n\n" +
 			"Examples:\n" +
 			"> fix-cli stop\n" +
 			"> curl --user myusername --data-binary '{\"jsonrpc\": \"1.0\", \"id\":\"curltest\", \"method\": \"stop\", \"params\": [] }' -H 'content-type: text/plain;' http://127.0.0.1:17465/",
@@ -142,7 +142,7 @@ var commandHelpTexts = map[string]string{
 			"  \"version\": xxxxx,           (numeric) the server version\n" +
 			"  \"protocolversion\": xxxxx,   (numeric) the protocol version\n" +
 			"  \"walletversion\": xxxxx,     (numeric) the wallet version\n" +
-			"  \"balance\": xxxxxxx,         (numeric) the total TWINS balance of the wallet\n" +
+			"  \"balance\": xxxxxxx,         (numeric) the total FIX balance of the wallet\n" +
 			"  \"blocks\": xxxxxx,           (numeric) the current number of blocks processed in the server\n" +
 			"  \"timeoffset\": xxxxx,        (numeric) the time offset\n" +
 			"  \"connections\": xxxxx,       (numeric) the number of connections\n" +
@@ -216,7 +216,7 @@ var commandHelpTexts = map[string]string{
 			"    \"txhash\": \"hash\",    (string) Collateral transaction hash\n" +
 			"    \"outidx\": n,         (numeric) Collateral output index\n" +
 			"    \"status\": \"status\",  (string) Status (ENABLED, EXPIRED, etc.)\n" +
-			"    \"addr\": \"addr\",      (string) Masternode TWINS address\n" +
+			"    \"addr\": \"addr\",      (string) Masternode FIX address\n" +
 			"    \"version\": n,        (numeric) Masternode protocol version\n" +
 			"    \"lastseen\": ttt,     (numeric) Last seen timestamp\n" +
 			"    \"activetime\": ttt,   (numeric) Active time in seconds\n" +
@@ -237,10 +237,10 @@ var commandHelpTexts = map[string]string{
 			"  \"stable\": n,       (numeric) Stable masternodes (ENABLED)\n" +
 			"  \"enabled\": n,      (numeric) Enabled masternodes\n" +
 			"  \"inqueue\": n,      (numeric) Masternodes in payment queue\n" +
-			"  \"bronze\": n,       (numeric) Bronze tier (1M TWINS)\n" +
-			"  \"silver\": n,       (numeric) Silver tier (5M TWINS)\n" +
-			"  \"gold\": n,         (numeric) Gold tier (20M TWINS)\n" +
-			"  \"platinum\": n      (numeric) Platinum tier (100M TWINS)\n" +
+			"  \"bronze\": n,       (numeric) Bronze tier (1M FIX)\n" +
+			"  \"silver\": n,       (numeric) Silver tier (5M FIX)\n" +
+			"  \"gold\": n,         (numeric) Gold tier (20M FIX)\n" +
+			"  \"platinum\": n      (numeric) Platinum tier (100M FIX)\n" +
 			"}\n\n" +
 			"Examples:\n" +
 			"> fix-cli getmasternodecount",
@@ -266,7 +266,7 @@ var commandHelpTexts = map[string]string{
 			"  \"txhash\": \"hash\",      (string) Collateral transaction hash\n" +
 			"  \"outputidx\": n,        (numeric) Collateral transaction output index\n" +
 			"  \"netaddr\": \"addr\",     (string) Masternode network address\n" +
-			"  \"addr\": \"addr\",        (string) TWINS address for masternode payments\n" +
+			"  \"addr\": \"addr\",        (string) FIX address for masternode payments\n" +
 			"  \"status\": \"status\",    (string) Masternode status\n" +
 			"  \"message\": \"msg\",      (string) Status message\n" +
 			"  \"tier\": \"tier\"         (string) Tier (Bronze, Silver, Gold, Platinum)\n" +
@@ -317,7 +317,7 @@ var commandHelpTexts = map[string]string{
 			"Create a new masternode private key.\n\n" +
 			"Result:\n" +
 			"\"key\"    (string) Masternode private key\n\n" +
-			"Use this key in masternode.conf and set masternodeprivkey= in twins.conf\n\n" +
+			"Use this key in masternode.conf and set masternodeprivkey= in fix.conf\n\n" +
 			"Examples:\n" +
 			"> fix-cli createmasternodekey",
 
@@ -328,16 +328,16 @@ var commandHelpTexts = map[string]string{
 			"  {\n" +
 			"    \"txhash\": \"hash\",   (string) Transaction hash\n" +
 			"    \"outputidx\": n,     (numeric) Output index\n" +
-			"    \"amount\": n,        (numeric) Output amount in TWINS\n" +
+			"    \"amount\": n,        (numeric) Output amount in FIX\n" +
 			"    \"tier\": \"tier\"      (string) Tier this output qualifies for\n" +
 			"  }\n" +
 			"  ,...\n" +
 			"]\n\n" +
 			"Valid masternode collateral amounts:\n" +
-			"  Bronze: 1,000,000 TWINS\n" +
-			"  Silver: 5,000,000 TWINS\n" +
-			"  Gold: 20,000,000 TWINS\n" +
-			"  Platinum: 100,000,000 TWINS\n\n" +
+			"  Bronze: 1,000,000 FIX\n" +
+			"  Silver: 5,000,000 FIX\n" +
+			"  Gold: 20,000,000 FIX\n" +
+			"  Platinum: 100,000,000 FIX\n\n" +
 			"Examples:\n" +
 			"> fix-cli getmasternodeoutputs",
 
@@ -444,7 +444,7 @@ var commandHelpTexts = map[string]string{
 			"  ],\n" +
 			"  \"vout\" : [              (array of json objects)\n" +
 			"     {\n" +
-			"       \"value\" : x.xxx,            (numeric) The value in TWINS\n" +
+			"       \"value\" : x.xxx,            (numeric) The value in FIX\n" +
 			"       \"n\" : n,                    (numeric) index\n" +
 			"       \"scriptPubKey\" : {          (json object)\n" +
 			"         \"asm\" : \"asm\",          (string) the asm\n" +
@@ -452,7 +452,7 @@ var commandHelpTexts = map[string]string{
 			"         \"reqSigs\" : n,            (numeric) The required sigs\n" +
 			"         \"type\" : \"pubkeyhash\",  (string) The type, eg 'pubkeyhash'\n" +
 			"         \"addresses\" : [           (json array of string)\n" +
-			"           \"twinsaddress\"   (string) TWINS address\n" +
+			"           \"fixaddress\"   (string) FIX address\n" +
 			"           ,...\n" +
 			"         ]\n" +
 			"       }\n" +
@@ -511,7 +511,7 @@ var commandHelpTexts = map[string]string{
 			"     ]\n" +
 			"2. \"addresses\"           (string, required) a json object with addresses as keys and amounts as values\n" +
 			"    {\n" +
-			"      \"address\": x.xxx   (numeric, required) The key is the TWINS address, the value is the TWINS amount\n" +
+			"      \"address\": x.xxx   (numeric, required) The key is the FIX address, the value is the FIX amount\n" +
 			"      ,...\n" +
 			"    }\n\n" +
 			"Result:\n" +
@@ -545,7 +545,7 @@ var commandHelpTexts = map[string]string{
 			"  \"type\":\"type\", (string) The output type\n" +
 			"  \"reqSigs\": n,    (numeric) The required signatures\n" +
 			"  \"addresses\": [   (json array of string)\n" +
-			"     \"address\"     (string) TWINS address\n" +
+			"     \"address\"     (string) FIX address\n" +
 			"     ,...\n" +
 			"  ],\n" +
 			"  \"p2sh\",\"address\" (string) script address\n" +
@@ -555,11 +555,11 @@ var commandHelpTexts = map[string]string{
 
 		// === Wallet Commands ===
 		"getnewaddress": "getnewaddress ( \"account\" )\n\n" +
-			"Returns a new TWINS address for receiving payments.\n\n" +
+			"Returns a new FIX address for receiving payments.\n\n" +
 			"Arguments:\n" +
 			"1. \"account\"        (string, optional) The account name for the address to be linked to. if not provided, the default account \"\" is used.\n\n" +
 			"Result:\n" +
-			"\"twinsaddress\"    (string) The new TWINS address\n\n" +
+			"\"fixaddress\"    (string) The new FIX address\n\n" +
 			"Examples:\n" +
 			"> fix-cli getnewaddress\n" +
 			"> fix-cli getnewaddress \"myaccount\"",
@@ -571,16 +571,16 @@ var commandHelpTexts = map[string]string{
 			"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n" +
 			"3. includeWatchonly (bool, optional, default=false) Also include balance in watchonly addresses\n\n" +
 			"Result:\n" +
-			"amount              (numeric) The total amount in TWINS received for this account.\n\n" +
+			"amount              (numeric) The total amount in FIX received for this account.\n\n" +
 			"Examples:\n" +
 			"> fix-cli getbalance\n" +
 			"> fix-cli getbalance \"*\" 6",
 
-		"sendtoaddress": "sendtoaddress \"twinsaddress\" amount ( \"comment\" \"comment-to\" )\n\n" +
+		"sendtoaddress": "sendtoaddress \"fixaddress\" amount ( \"comment\" \"comment-to\" )\n\n" +
 			"Send an amount to a given address.\n\n" +
 			"Arguments:\n" +
-			"1. \"twinsaddress\"  (string, required) The TWINS address to send to.\n" +
-			"2. \"amount\"      (numeric, required) The amount in TWINS to send. eg 0.1\n" +
+			"1. \"fixaddress\"  (string, required) The FIX address to send to.\n" +
+			"2. \"amount\"      (numeric, required) The amount in FIX to send. eg 0.1\n" +
 			"3. \"comment\"     (string, optional) A comment used to store what the transaction is for.\n" +
 			"4. \"comment-to\"  (string, optional) A comment to store the name of the person or organization to which you're sending the transaction.\n\n" +
 			"Result:\n" +
@@ -594,16 +594,16 @@ var commandHelpTexts = map[string]string{
 			"Arguments:\n" +
 			"1. minconf          (numeric, optional, default=1) The minimum confirmations to filter\n" +
 			"2. maxconf          (numeric, optional, default=9999999) The maximum confirmations to filter\n" +
-			"3. \"addresses\"    (string) A json array of TWINS addresses to filter\n\n" +
+			"3. \"addresses\"    (string) A json array of FIX addresses to filter\n\n" +
 			"Result:\n" +
 			"[                   (array of json object)\n" +
 			"  {\n" +
 			"    \"txid\" : \"txid\",        (string) the transaction id\n" +
 			"    \"vout\" : n,               (numeric) the vout value\n" +
-			"    \"address\" : \"address\",  (string) the TWINS address\n" +
+			"    \"address\" : \"address\",  (string) the FIX address\n" +
 			"    \"account\" : \"account\",  (string) The associated account, or \"\" for the default account\n" +
 			"    \"scriptPubKey\" : \"key\", (string) the script key\n" +
-			"    \"amount\" : x.xxx,         (numeric) the transaction amount in TWINS\n" +
+			"    \"amount\" : x.xxx,         (numeric) the transaction amount in FIX\n" +
 			"    \"confirmations\" : n       (numeric) The number of confirmations\n" +
 			"  }\n" +
 			"  ,...\n" +
@@ -669,33 +669,33 @@ var commandHelpTexts = map[string]string{
 			"Examples:\n" +
 			"> fix-cli walletlock",
 
-		"dumpprivkey": "dumpprivkey \"twinsaddress\"\n\n" +
-			"Reveals the private key corresponding to 'twinsaddress'.\n\n" +
+		"dumpprivkey": "dumpprivkey \"fixaddress\"\n\n" +
+			"Reveals the private key corresponding to 'fixaddress'.\n\n" +
 			"Arguments:\n" +
-			"1. \"twinsaddress\"   (string, required) The TWINS address for the private key\n\n" +
+			"1. \"fixaddress\"   (string, required) The FIX address for the private key\n\n" +
 			"Result:\n" +
 			"\"key\"                (string) The private key\n\n" +
 			"Examples:\n" +
 			"> fix-cli dumpprivkey \"myaddress\"",
 
-		"importprivkey": "importprivkey \"twinsprivkey\" ( \"label\" rescan )\n\n" +
+		"importprivkey": "importprivkey \"fixprivkey\" ( \"label\" rescan )\n\n" +
 			"Adds a private key (as returned by dumpprivkey) to your wallet.\n\n" +
 			"Arguments:\n" +
-			"1. \"twinsprivkey\"   (string, required) The private key (see dumpprivkey)\n" +
+			"1. \"fixprivkey\"   (string, required) The private key (see dumpprivkey)\n" +
 			"2. \"label\"            (string, optional, default=\"\") An optional label\n" +
 			"3. rescan               (boolean, optional, default=true) Rescan the wallet for transactions\n\n" +
 			"Examples:\n" +
 			"> fix-cli importprivkey \"mykey\"\n" +
 			"> fix-cli importprivkey \"mykey\" \"testing\" false",
 
-		"validateaddress": "validateaddress \"twinsaddress\"\n\n" +
-			"Return information about the given TWINS address.\n\n" +
+		"validateaddress": "validateaddress \"fixaddress\"\n\n" +
+			"Return information about the given FIX address.\n\n" +
 			"Arguments:\n" +
-			"1. \"twinsaddress\"     (string, required) The TWINS address to validate\n\n" +
+			"1. \"fixaddress\"     (string, required) The FIX address to validate\n\n" +
 			"Result:\n" +
 			"{\n" +
 			"  \"isvalid\" : true|false,       (boolean) If the address is valid or not.\n" +
-			"  \"address\" : \"twinsaddress\", (string) The TWINS address validated\n" +
+			"  \"address\" : \"fixaddress\", (string) The FIX address validated\n" +
 			"  \"ismine\" : true|false,        (boolean) If the address is yours or not\n" +
 			"  \"isscript\" : true|false,      (boolean) If the key is a script\n" +
 			"  \"pubkey\" : \"publickeyhex\",  (string) The hex value of the raw public key\n" +
@@ -803,7 +803,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool in seconds since 1 Jan 1970 GMT\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"startingpriority\" : n, (numeric) priority when transaction entered pool\n" +
@@ -836,7 +836,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{                           (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -861,7 +861,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -887,7 +887,7 @@ var commandHelpTexts = map[string]string{
 		"{                           (json object)\n" +
 		"  \"transactionid\" : {       (json object)\n" +
 		"    \"size\" : n,             (numeric) transaction size in bytes\n" +
-		"    \"fee\" : n,              (numeric) transaction fee in TWINS\n" +
+		"    \"fee\" : n,              (numeric) transaction fee in FIX\n" +
 		"    \"time\" : n,             (numeric) local time transaction entered pool\n" +
 		"    \"height\" : n,           (numeric) block height when transaction entered pool\n" +
 		"    \"depends\" : [           (array) unconfirmed transactions used as inputs\n" +
@@ -1018,7 +1018,7 @@ var commandHelpTexts = map[string]string{
 		"Returns anonymous pool-related information.\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"current\": \"addr\",    (string) TWINS address of current masternode\n" +
+		"  \"current\": \"addr\",    (string) FIX address of current masternode\n" +
 		"  \"state\": xxxx,        (string) Current state of the pool\n" +
 		"  \"entries\": xxxx,      (numeric) Number of entries in the pool\n" +
 		"  \"accepted\": xxxx,     (numeric) Number of accepted entries\n" +
@@ -1106,17 +1106,17 @@ var commandHelpTexts = map[string]string{
 
 	// === Additional Wallet Commands ===
 	"getaccountaddress": "getaccountaddress \"account\"\n\n" +
-		"Returns the current TWINS address for receiving payments to this account.\n\n" +
+		"Returns the current FIX address for receiving payments to this account.\n\n" +
 		"Arguments:\n" +
 		"1. \"account\"       (string, required) The account name. It can also be set to the empty string \"\" to represent the default account.\n\n" +
 		"Result:\n" +
-		"\"twinsaddress\"   (string) The account TWINS address\n\n" +
+		"\"fixaddress\"   (string) The account FIX address\n\n" +
 		"Examples:\n" +
 		"> fix-cli getaccountaddress \"\"\n" +
 		"> fix-cli getaccountaddress \"myaccount\"",
 
 	"getrawchangeaddress": "getrawchangeaddress\n\n" +
-		"Returns a new TWINS address for receiving change. This is for use with raw transactions, NOT normal use.\n\n" +
+		"Returns a new FIX address for receiving change. This is for use with raw transactions, NOT normal use.\n\n" +
 		"Result:\n" +
 		"\"address\"    (string) The address\n\n" +
 		"Examples:\n" +
@@ -1125,17 +1125,17 @@ var commandHelpTexts = map[string]string{
 	"getunconfirmedbalance": "getunconfirmedbalance\n\n" +
 		"Returns the server's total unconfirmed balance.\n\n" +
 		"Result:\n" +
-		"n            (numeric) The total unconfirmed balance in TWINS\n\n" +
+		"n            (numeric) The total unconfirmed balance in FIX\n\n" +
 		"Examples:\n" +
 		"> fix-cli getunconfirmedbalance",
 
-	"sendfrom": "sendfrom \"fromaccount\" \"totwinsaddress\" amount ( minconf \"comment\" \"comment-to\" )\n\n" +
-		"Send an amount from an account to a TWINS address.\n" +
+	"sendfrom": "sendfrom \"fromaccount\" \"tofixaddress\" amount ( minconf \"comment\" \"comment-to\" )\n\n" +
+		"Send an amount from an account to a FIX address.\n" +
 		"The amount is a real and is rounded to the nearest 0.00000001.\n\n" +
 		"Arguments:\n" +
 		"1. \"fromaccount\"       (string, required) The name of the account to send funds from. Default account is \"\".\n" +
-		"2. \"totwinsaddress\"  (string, required) The TWINS address to send funds to.\n" +
-		"3. amount                (numeric, required) The amount in TWINS (transaction fee is added on top).\n" +
+		"2. \"tofixaddress\"  (string, required) The FIX address to send funds to.\n" +
+		"3. amount                (numeric, required) The amount in FIX (transaction fee is added on top).\n" +
 		"4. minconf               (numeric, optional, default=1) Only use funds with at least this many confirmations.\n" +
 		"5. \"comment\"           (string, optional) A comment used to store what the transaction is for.\n" +
 		"6. \"comment-to\"       (string, optional) An optional comment to store the name of the person or organization.\n\n" +
@@ -1151,7 +1151,7 @@ var commandHelpTexts = map[string]string{
 		"1. \"fromaccount\"         (string, required) The account to send the funds from. Should be \"\" for the default account.\n" +
 		"2. \"amounts\"             (string, required) A json object with addresses and amounts\n" +
 		"    {\n" +
-		"      \"address\":amount   (numeric) The TWINS address is the key, the numeric amount in TWINS is the value\n" +
+		"      \"address\":amount   (numeric) The FIX address is the key, the numeric amount in FIX is the value\n" +
 		"      ,...\n" +
 		"    }\n" +
 		"3. minconf                 (numeric, optional, default=1) Only use the balance confirmed at least this many times.\n" +
@@ -1161,18 +1161,18 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli sendmany \"\" \"{\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\":0.01,\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\":0.02}\"",
 
-	"setaccount": "setaccount \"twinsaddress\" \"account\"\n\n" +
+	"setaccount": "setaccount \"fixaddress\" \"account\"\n\n" +
 		"Sets the account associated with the given address.\n\n" +
 		"Arguments:\n" +
-		"1. \"twinsaddress\"  (string, required) The TWINS address to be associated with an account.\n" +
+		"1. \"fixaddress\"  (string, required) The FIX address to be associated with an account.\n" +
 		"2. \"account\"         (string, required) The account to assign the address to.\n\n" +
 		"Examples:\n" +
 		"> fix-cli setaccount \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" \"tabby\"",
 
-	"getaccount": "getaccount \"twinsaddress\"\n\n" +
+	"getaccount": "getaccount \"fixaddress\"\n\n" +
 		"Returns the account associated with the given address.\n\n" +
 		"Arguments:\n" +
-		"1. \"twinsaddress\"  (string, required) The TWINS address for account lookup.\n\n" +
+		"1. \"fixaddress\"  (string, required) The FIX address for account lookup.\n\n" +
 		"Result:\n" +
 		"\"accountname\"        (string) the account address belongs to\n\n" +
 		"Examples:\n" +
@@ -1184,19 +1184,19 @@ var commandHelpTexts = map[string]string{
 		"1. \"account\"        (string, required) The account name.\n\n" +
 		"Result:\n" +
 		"[                     (json array of string)\n" +
-		"  \"twinsaddress\"  (string) a TWINS address associated with the given account\n" +
+		"  \"fixaddress\"  (string) a FIX address associated with the given account\n" +
 		"  ,...\n" +
 		"]\n\n" +
 		"Examples:\n" +
 		"> fix-cli getaddressesbyaccount \"tabby\"",
 
-	"getreceivedbyaddress": "getreceivedbyaddress \"twinsaddress\" ( minconf )\n\n" +
-		"Returns the total amount received by the given TWINS address in transactions with at least minconf confirmations.\n\n" +
+	"getreceivedbyaddress": "getreceivedbyaddress \"fixaddress\" ( minconf )\n\n" +
+		"Returns the total amount received by the given FIX address in transactions with at least minconf confirmations.\n\n" +
 		"Arguments:\n" +
-		"1. \"twinsaddress\"  (string, required) The TWINS address for transactions.\n" +
+		"1. \"fixaddress\"  (string, required) The FIX address for transactions.\n" +
 		"2. minconf             (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n\n" +
 		"Result:\n" +
-		"amount   (numeric) The total amount in TWINS received at this address.\n\n" +
+		"amount   (numeric) The total amount in FIX received at this address.\n\n" +
 		"Examples:\n" +
 		"> fix-cli getreceivedbyaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\"\n" +
 		"> fix-cli getreceivedbyaddress \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" 6",
@@ -1207,7 +1207,7 @@ var commandHelpTexts = map[string]string{
 		"1. \"account\"      (string, required) The selected account, may be the default account using \"\".\n" +
 		"2. minconf          (numeric, optional, default=1) Only include transactions confirmed at least this many times.\n\n" +
 		"Result:\n" +
-		"amount              (numeric) The total amount in TWINS received for this account.\n\n" +
+		"amount              (numeric) The total amount in FIX received for this account.\n\n" +
 		"Examples:\n" +
 		"> fix-cli getreceivedbyaccount \"\"\n" +
 		"> fix-cli getreceivedbyaccount \"tabby\" 6",
@@ -1224,7 +1224,7 @@ var commandHelpTexts = map[string]string{
 		"    \"involvesWatchonly\": true,   (bool) Only returned if imported addresses were involved in transaction\n" +
 		"    \"address\" : \"receivingaddress\",  (string) The receiving address\n" +
 		"    \"account\" : \"accountname\",  (string) The account of the receiving address.\n" +
-		"    \"amount\" : x.xxx,                  (numeric) The total amount in TWINS received by the address\n" +
+		"    \"amount\" : x.xxx,                  (numeric) The total amount in FIX received by the address\n" +
 		"    \"confirmations\" : n                 (numeric) The number of confirmations of the most recent transaction included\n" +
 		"  }\n" +
 		"  ,...\n" +
@@ -1265,10 +1265,10 @@ var commandHelpTexts = map[string]string{
 		"[\n" +
 		"  {\n" +
 		"    \"account\":\"accountname\",       (string) The account name associated with the transaction.\n" +
-		"    \"address\":\"twinsaddress\",    (string) The TWINS address of the transaction.\n" +
+		"    \"address\":\"fixaddress\",    (string) The FIX address of the transaction.\n" +
 		"    \"category\":\"send|receive|stake\", (string) The transaction category.\n" +
-		"    \"amount\": x.xxx,                 (numeric) The amount in TWINS.\n" +
-		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in TWINS. This is negative and only available for the 'send' category.\n" +
+		"    \"amount\": x.xxx,                 (numeric) The amount in FIX.\n" +
+		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in FIX. This is negative and only available for the 'send' category.\n" +
 		"    \"confirmations\": n,              (numeric) The number of confirmations for the transaction.\n" +
 		"    \"blockhash\": \"hashvalue\",     (string) The block hash containing the transaction.\n" +
 		"    \"blockindex\": n,                 (numeric) The block index containing the transaction.\n" +
@@ -1291,7 +1291,7 @@ var commandHelpTexts = map[string]string{
 		"2. \"includeWatchonly\"    (bool, optional, default=false) Whether to include watchonly addresses in balance calculation and details[]\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"amount\" : x.xxx,        (numeric) The transaction amount in TWINS\n" +
+		"  \"amount\" : x.xxx,        (numeric) The transaction amount in FIX\n" +
 		"  \"confirmations\" : n,     (numeric) The number of confirmations\n" +
 		"  \"blockhash\" : \"hash\",  (string) The block hash\n" +
 		"  \"blockindex\" : xx,       (numeric) The block index\n" +
@@ -1302,9 +1302,9 @@ var commandHelpTexts = map[string]string{
 		"  \"details\" : [\n" +
 		"    {\n" +
 		"      \"account\" : \"accountname\",  (string) The account name involved in the transaction\n" +
-		"      \"address\" : \"twinsaddress\",   (string) The TWINS address involved in the transaction\n" +
+		"      \"address\" : \"fixaddress\",   (string) The FIX address involved in the transaction\n" +
 		"      \"category\" : \"send|receive\",    (string) The category, either 'send' or 'receive'\n" +
-		"      \"amount\" : x.xxx                  (numeric) The amount in TWINS\n" +
+		"      \"amount\" : x.xxx                  (numeric) The amount in FIX\n" +
 		"    }\n" +
 		"    ,...\n" +
 		"  ],\n" +
@@ -1323,10 +1323,10 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"transactions\": [\n" +
 		"    \"account\":\"accountname\",       (string) The account name associated with the transaction.\n" +
-		"    \"address\":\"twinsaddress\",    (string) The TWINS address of the transaction.\n" +
+		"    \"address\":\"fixaddress\",    (string) The FIX address of the transaction.\n" +
 		"    \"category\":\"send|receive\",     (string) The transaction category.\n" +
-		"    \"amount\": x.xxx,                 (numeric) The amount in TWINS.\n" +
-		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in TWINS.\n" +
+		"    \"amount\": x.xxx,                 (numeric) The amount in FIX.\n" +
+		"    \"fee\": x.xxx,                    (numeric) The amount of the fee in FIX.\n" +
 		"    \"confirmations\": n,              (numeric) The number of confirmations for the transaction.\n" +
 		"    \"blockhash\": \"hashvalue\",     (string) The block hash containing the transaction.\n" +
 		"    \"blockindex\": n,                 (numeric) The block index containing the transaction.\n" +
@@ -1363,8 +1363,8 @@ var commandHelpTexts = map[string]string{
 		"[\n" +
 		"  [\n" +
 		"    [\n" +
-		"      \"twinsaddress\",     (string) The TWINS address\n" +
-		"      amount,                 (numeric) The amount in TWINS\n" +
+		"      \"fixaddress\",     (string) The FIX address\n" +
+		"      amount,                 (numeric) The amount in FIX\n" +
 		"      \"account\"             (string, optional) The account\n" +
 		"    ]\n" +
 		"    ,...\n" +
@@ -1375,12 +1375,12 @@ var commandHelpTexts = map[string]string{
 		"> fix-cli listaddressgroupings",
 
 	"getaddressinfo": "getaddressinfo \"address\"\n\n" +
-		"Return information about the given TWINS address. Some information requires the address to be in the wallet.\n\n" +
+		"Return information about the given FIX address. Some information requires the address to be in the wallet.\n\n" +
 		"Arguments:\n" +
-		"1. \"address\"                    (string, required) The TWINS address to get the information of.\n\n" +
+		"1. \"address\"                    (string, required) The FIX address to get the information of.\n\n" +
 		"Result:\n" +
 		"{\n" +
-		"  \"address\" : \"address\",        (string) The TWINS address validated\n" +
+		"  \"address\" : \"address\",        (string) The FIX address validated\n" +
 		"  \"scriptPubKey\" : \"hex\",       (string) The hex encoded scriptPubKey generated by the address\n" +
 		"  \"ismine\" : true|false,          (boolean) If the address is yours or not\n" +
 		"  \"iswatchonly\" : true|false,     (boolean) If the address is watchonly\n" +
@@ -1441,7 +1441,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"[\n" +
 		"  {\n" +
-		"    \"address\": \"addr\",  (string) The TWINS address\n" +
+		"    \"address\": \"addr\",  (string) The FIX address\n" +
 		"    \"label\": \"label\",   (string) The label/account associated with the address\n" +
 		"    \"ismine\": true|false, (boolean) If the key is yours\n" +
 		"  }\n" +
@@ -1450,10 +1450,10 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli listaddresses",
 
-	"signmessage": "signmessage \"twinsaddress\" \"message\"\n\n" +
+	"signmessage": "signmessage \"fixaddress\" \"message\"\n\n" +
 		"Sign a message with the private key of an address.\n\n" +
 		"Arguments:\n" +
-		"1. \"twinsaddress\"  (string, required) The TWINS address to use for the private key.\n" +
+		"1. \"fixaddress\"  (string, required) The FIX address to use for the private key.\n" +
 		"2. \"message\"         (string, required) The message to create a signature of.\n\n" +
 		"Result:\n" +
 		"\"signature\"          (string) The signature of the message encoded in base 64\n\n" +
@@ -1461,10 +1461,10 @@ var commandHelpTexts = map[string]string{
 		"Examples:\n" +
 		"> fix-cli signmessage \"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\" \"my message\"",
 
-	"verifymessage": "verifymessage \"twinsaddress\" \"signature\" \"message\"\n\n" +
+	"verifymessage": "verifymessage \"fixaddress\" \"signature\" \"message\"\n\n" +
 		"Verify a signed message.\n\n" +
 		"Arguments:\n" +
-		"1. \"twinsaddress\"  (string, required) The TWINS address to use for the signature.\n" +
+		"1. \"fixaddress\"  (string, required) The FIX address to use for the signature.\n" +
 		"2. \"signature\"       (string, required) The signature provided by the signer in base 64 encoding.\n" +
 		"3. \"message\"         (string, required) The message that was signed.\n\n" +
 		"Result:\n" +
@@ -1477,9 +1477,9 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"walletversion\": xxxxx,     (numeric) the wallet version\n" +
-		"  \"balance\": xxxxxxx,         (numeric) the total confirmed TWINS balance of the wallet\n" +
-		"  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed balance of the wallet in TWINS\n" +
-		"  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet in TWINS\n" +
+		"  \"balance\": xxxxxxx,         (numeric) the total confirmed FIX balance of the wallet\n" +
+		"  \"unconfirmed_balance\": xxx, (numeric) the total unconfirmed balance of the wallet in FIX\n" +
+		"  \"immature_balance\": xxxxxx, (numeric) the total immature balance of the wallet in FIX\n" +
 		"  \"txcount\": xxxxxxx,         (numeric) the total number of transactions in the wallet\n" +
 		"  \"keypoololdest\": xxxxxx,    (numeric) the timestamp (seconds since GMT epoch) of the oldest pre-generated key in the key pool\n" +
 		"  \"keypoolsize\": xxxx,        (numeric) how many new keys are pre-generated\n" +
@@ -1544,7 +1544,7 @@ var commandHelpTexts = map[string]string{
 		"Note: Consolidation links UTXOs on the same address on-chain (privacy consideration).\n\n" +
 		"Arguments:\n" +
 		"1. true|false      (boolean, required) Enable/disable auto-combine.\n" +
-		"2. target_amount    (numeric, optional) Target amount in TWINS (required when enabling)\n\n" +
+		"2. target_amount    (numeric, optional) Target amount in FIX (required when enabling)\n\n" +
 		"Result:\n" +
 		"{\n" +
 		"  \"enabled\": true|false,\n" +
@@ -1560,7 +1560,7 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"enabled\": true|false,\n" +
-		"  \"target\": n,        (numeric) Target amount in TWINS\n" +
+		"  \"target\": n,        (numeric) Target amount in FIX\n" +
 		"  \"cooldown\": n       (numeric) Cooldown between cycles in seconds\n" +
 		"}\n\n" +
 		"Examples:\n" +
@@ -1583,17 +1583,17 @@ var commandHelpTexts = map[string]string{
 
 	"addmultisigaddress": "addmultisigaddress nrequired [\"key\",...] ( \"account\" )\n\n" +
 		"Add a nrequired-to-sign multisignature address to the wallet.\n" +
-		"Each key is a TWINS address or hex-encoded public key.\n\n" +
+		"Each key is a FIX address or hex-encoded public key.\n\n" +
 		"Arguments:\n" +
 		"1. nrequired        (numeric, required) The number of required signatures out of the n keys or addresses.\n" +
-		"2. \"keysobject\"   (string, required) A json array of TWINS addresses or hex-encoded public keys\n" +
+		"2. \"keysobject\"   (string, required) A json array of FIX addresses or hex-encoded public keys\n" +
 		"     [\n" +
-		"       \"address\"  (string) TWINS address or hex-encoded public key\n" +
+		"       \"address\"  (string) FIX address or hex-encoded public key\n" +
 		"       ...,\n" +
 		"     ]\n" +
 		"3. \"account\"      (string, optional) An account to assign the addresses to.\n\n" +
 		"Result:\n" +
-		"\"twinsaddress\"  (string) A TWINS address associated with the keys.\n\n" +
+		"\"fixaddress\"  (string) A FIX address associated with the keys.\n\n" +
 		"Examples:\n" +
 		"> fix-cli addmultisigaddress 2 \"[\\\"DMJRSsuU9zfyrvxVaAEFQqK4MxZg6vgeS6\\\",\\\"DAD3Y6ivr8nPQLT1NEPX84DxGCw9jz9Jvg\\\"]\"",
 
@@ -1601,9 +1601,9 @@ var commandHelpTexts = map[string]string{
 		"Creates a multi-signature address with n signature of m keys required.\n\n" +
 		"Arguments:\n" +
 		"1. nrequired      (numeric, required) The number of required signatures out of the n keys or addresses.\n" +
-		"2. \"keys\"       (string, required) A json array of keys which are TWINS addresses or hex-encoded public keys\n" +
+		"2. \"keys\"       (string, required) A json array of keys which are FIX addresses or hex-encoded public keys\n" +
 		"     [\n" +
-		"       \"key\"    (string) TWINS address or hex-encoded public key\n" +
+		"       \"key\"    (string) FIX address or hex-encoded public key\n" +
 		"       ,...\n" +
 		"     ]\n\n" +
 		"Result:\n" +
@@ -1625,14 +1625,14 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"bestblock\" : \"hash\",    (string) the block hash\n" +
 		"  \"confirmations\" : n,       (numeric) The number of confirmations\n" +
-		"  \"value\" : x.xxx,           (numeric) The transaction value in TWINS\n" +
+		"  \"value\" : x.xxx,           (numeric) The transaction value in FIX\n" +
 		"  \"scriptPubKey\" : {         (json object)\n" +
 		"     \"asm\" : \"code\",       (string)\n" +
 		"     \"hex\" : \"hex\",        (string)\n" +
 		"     \"reqSigs\" : n,          (numeric) Number of required signatures\n" +
 		"     \"type\" : \"pubkeyhash\", (string) The type, eg pubkeyhash\n" +
-		"     \"addresses\" : [          (array of string) array of TWINS addresses\n" +
-		"        \"twinsaddress\"     (string)\n" +
+		"     \"addresses\" : [          (array of string) array of FIX addresses\n" +
+		"        \"fixaddress\"     (string)\n" +
 		"     ]\n" +
 		"  },\n" +
 		"  \"version\" : n,            (numeric) The version\n" +
@@ -1661,7 +1661,7 @@ var commandHelpTexts = map[string]string{
 		"    \"connected\" : true|false,          (boolean) If connected\n" +
 		"    \"addresses\" : [\n" +
 		"       {\n" +
-		"         \"address\" : \"192.168.0.201:37817\",  (string) The TWINS server host and port\n" +
+		"         \"address\" : \"192.168.0.201:37817\",  (string) The FIX server host and port\n" +
 		"         \"connected\" : \"outbound\"           (string) connection, inbound or outbound\n" +
 		"       }\n" +
 		"       ,...\n" +
@@ -1824,7 +1824,7 @@ var commandHelpTexts = map[string]string{
 		"{\n" +
 		"  \"txcount\": xxxxx,         (numeric) Number of transactions\n" +
 		"  \"txbytes\": xxxxx,         (numeric) Total size of transactions\n" +
-		"  \"ttlfee\": xxxxx,          (numeric) Sum of all fees in TWINS\n" +
+		"  \"ttlfee\": xxxxx,          (numeric) Sum of all fees in FIX\n" +
 		"  \"feeperkb\": xxxxx,        (numeric) Average fee per kilobyte\n" +
 		"  \"rec_highpriorityfee_perkb\": xxxxx  (numeric) Recommended fee for high priority per kB\n" +
 		"}\n\n" +
@@ -1838,9 +1838,9 @@ var commandHelpTexts = map[string]string{
 		"Result:\n" +
 		"{\n" +
 		"  \"height\": n,             (numeric) Block height\n" +
-		"  \"blockreward\": x.xxx,   (numeric) Total block reward in TWINS\n" +
-		"  \"stakereward\": x.xxx,   (numeric) PoS staker reward in TWINS\n" +
-		"  \"mnreward\": x.xxx,      (numeric) Masternode reward in TWINS\n" +
+		"  \"blockreward\": x.xxx,   (numeric) Total block reward in FIX\n" +
+		"  \"stakereward\": x.xxx,   (numeric) PoS staker reward in FIX\n" +
+		"  \"mnreward\": x.xxx,      (numeric) Masternode reward in FIX\n" +
 		"  \"stakepercentage\": n,   (numeric) PoS reward percentage\n" +
 		"  \"mnpercentage\": n       (numeric) Masternode reward percentage\n" +
 		"}\n\n" +
@@ -2002,7 +2002,7 @@ var commandHelpTexts = map[string]string{
 
 	"getgenerate": "getgenerate\n\n" +
 		"Return if the server is set to generate coins or not. The default is false.\n" +
-		"It is set with the command line argument -gen (or twins.conf setting gen).\n" +
+		"It is set with the command line argument -gen (or fix.conf setting gen).\n" +
 		"It can also be set with the setgenerate call.\n\n" +
 		"Result:\n" +
 		"true|false      (boolean) If the server is set to generate coins or not\n\n" +
@@ -2084,7 +2084,7 @@ func (s *Server) handleStop(req *Request) *Response {
 	// Return success message
 	return &Response{
 		JSONRPC: "2.0",
-		Result:  "TWINS server stopping",
+		Result:  "FIX server stopping",
 		ID:      req.ID,
 	}
 }
